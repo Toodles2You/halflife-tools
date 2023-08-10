@@ -208,8 +208,10 @@ static void decomp_mesh (
 
 static void decomp_meshes (
     FILE *mdl,
+    FILE *tex,
     FILE *smd,
     studiohdr_t *header,
+    studiohdr_t *textureheader,
     mstudiomodel_t *model,
     mstudiobone_t *bones,
     mat4x3_t *bone_transform)
@@ -219,10 +221,10 @@ static void decomp_meshes (
     mstudiotexture_t texture;
     short skin;
 
-    vec3_t *verts = (vec3_t *)calloc (model->numverts, sizeof (*verts));
-    vec3_t *norms = (vec3_t *)calloc (model->numnorms, sizeof (*norms));
-    byte *vert_bones = (byte *)calloc (model->numverts, 1);
-    byte *norm_bones = (byte *)calloc (model->numnorms, 1);
+    vec3_t *verts = (vec3_t *)memalloc (model->numverts, sizeof (*verts));
+    vec3_t *norms = (vec3_t *)memalloc (model->numnorms, sizeof (*norms));
+    byte *vert_bones = (byte *)memalloc (model->numverts, 1);
+    byte *norm_bones = (byte *)memalloc (model->numnorms, 1);
 
     mdl_seek (mdl, model->vertindex, SEEK_SET);
     mdl_read (mdl, verts, model->numverts * sizeof (*verts));
@@ -245,11 +247,11 @@ static void decomp_meshes (
 
         /* fprintf (stdout, "Mesh %i of %s has %i triangles\n", i, model->name, mesh.numtris); */
 
-        mdl_seek (mdl, header->skinindex + sizeof (skin) * mesh.skinref, SEEK_SET);
-        mdl_read (mdl, &skin, sizeof (skin));
+        mdl_seek (tex, textureheader->skinindex + sizeof (skin) * mesh.skinref, SEEK_SET);
+        mdl_read (tex, &skin, sizeof (skin));
 
-        mdl_seek (mdl, header->textureindex + sizeof (texture) * skin, SEEK_SET);
-        mdl_read (mdl, &texture, sizeof (texture));
+        mdl_seek (tex, textureheader->textureindex + sizeof (texture) * skin, SEEK_SET);
+        mdl_read (tex, &texture, sizeof (texture));
 
         fixpath (texture.name, true);
         stripext (texture.name);
@@ -280,15 +282,17 @@ static void decomp_meshes (
 
 void decomp_studiomodel (
     FILE *mdl,
+    FILE *tex,
     const char *smddir,
     studiohdr_t *header,
+    studiohdr_t *textureheader,
     mstudiomodel_t *model,
     const char *nodes)
 {
     FILE *smd = qc_open (smddir, model->name, "smd");
 
-    mstudiobone_t* bones = (mstudiobone_t *)calloc (header->numbones, sizeof (*bones));
-    mat4x3_t *bone_transform = (mat4x3_t *)calloc (header->numbones, sizeof (*bone_transform));
+    mstudiobone_t* bones = (mstudiobone_t *)memalloc (header->numbones, sizeof (*bones));
+    mat4x3_t *bone_transform = (mat4x3_t *)memalloc (header->numbones, sizeof (*bone_transform));
 
     qc_write (smd, "version 1");
     qc_write (smd, nodes);
@@ -302,7 +306,7 @@ void decomp_studiomodel (
     decomp_writeskeleton (mdl, smd, header, bones, 0);
     qc_write (smd, "end");
 
-    decomp_meshes (mdl, smd, header, model, bones, bone_transform);
+    decomp_meshes (mdl, tex, smd, header, textureheader, model, bones, bone_transform);
     
     free (bone_transform);
     free (bones);

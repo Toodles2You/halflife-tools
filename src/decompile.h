@@ -63,6 +63,8 @@ void filebase (char *str, char **name, char **ext);
 void strlwr (char *str);
 bool makepath (const char *path);
 
+void *memalloc (size_t nmemb, size_t size);
+
 #define	Q_PI 3.14159265358979323846F
 
 #define dot(x, y) ((x)[0] * (y)[0] + (x)[1] * (y)[1] + (x)[2] * (y)[2])
@@ -73,7 +75,7 @@ void concattransforms (const mat4x3_t in1, const mat4x3_t in2, mat4x3_t out);
 void vectortransform (const vec3_t in1, const mat4x3_t in2, vec3_t out);
 void vectorrotate (const vec3_t in1, const mat4x3_t in2, vec3_t out);
 
-FILE *mdl_open (const char *filename);
+FILE *mdl_open (const char *filename, int safe);
 void mdl_read (FILE *stream, void *dst, size_t size);
 void mdl_seek (FILE *stream, long off, int whence);
 char* mdl_getmotionflag (int type);

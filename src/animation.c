@@ -112,8 +112,8 @@ void decomp_studioanim (
     int animindex,
     const char *nodes)
 {
-    vec3_t *bone_pos = (vec3_t *)calloc (header->numbones, sizeof (*bone_pos));
-    vec3_t *bone_rot = (vec3_t *)calloc (header->numbones, sizeof (*bone_rot));
+    vec3_t *bone_pos = (vec3_t *)memalloc (header->numbones, sizeof (*bone_pos));
+    vec3_t *bone_rot = (vec3_t *)memalloc (header->numbones, sizeof (*bone_rot));
 
     qc_write (smd, "version 1");
     qc_write (smd, nodes);

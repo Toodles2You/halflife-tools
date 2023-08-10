@@ -142,7 +142,7 @@ char *appenddir (char *path, char *dir)
 
     bool slash = path[path_len - 1] != '/';
 
-    char *new_path = (char *)calloc (path_len + slash + dir_len, 1);
+    char *new_path = (char *)memalloc (path_len + slash + dir_len, 1);
     strcpy (new_path, path);
 
     if (slash)
@@ -224,12 +224,32 @@ bool makepath (const char *path)
     return true;
 }
 
-FILE *mdl_open (const char *filename)
+void *memalloc (size_t nmemb, size_t size)
 {
+    void *ptr = calloc (nmemb, size);
+
+    if (!ptr)
+        error (1, "Failed to allocate %i bytes\n", nmemb * size);
+    
+    return ptr;
+}
+
+FILE *mdl_open (const char *filename, int safe)
+{
+    if (!safe)
+        fprintf (stdout, "Reading from \"%s\"...\n", filename);
+
     FILE *stream = fopen (filename, "rb");
 
     if (!stream)
+    {
+        if (safe)
+            return NULL;
         error (1, "No input file\n");
+    }
+
+    if (safe)
+        fprintf (stdout, "Reading from \"%s\"...\n", filename);
     
     int32_t id;
     mdl_read (stream, &id, sizeof (id));
@@ -244,8 +264,6 @@ FILE *mdl_open (const char *filename)
         error (1, "Wrong MDL version\n");
     
     mdl_seek (stream, 0, SEEK_SET);
-
-    fprintf (stdout, "Reading from \"%s\"...\n", filename);
     
     return stream;
 }
@@ -324,7 +342,7 @@ FILE *qc_open (const char *filepath, const char *filename, const char *ext)
     if (ext)
         len += strlen (ext);
     
-    char *fullname = (char *)calloc (len, 1);
+    char *fullname = (char *)memalloc (len, 1);
     
     strcpy (fullname, filepath);
     fixpath (fullname, false);
@@ -344,12 +362,12 @@ FILE *qc_open (const char *filepath, const char *filename, const char *ext)
 
     qc_makepath (fullname);
 
+    fprintf (stdout, "Writing to \"%s\"...\n", fullname);
+
     FILE *stream = fopen (fullname, "w");
 
     if (!stream)
         error (1, "Failed to create file\n");
-
-    fprintf (stdout, "Writing to \"%s\"...\n", fullname);
 
     free (fullname);
 

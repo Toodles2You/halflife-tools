@@ -86,7 +86,7 @@ static void decomp_writebmp (FILE *bmp, byte *data, int width, int height, byte 
 
     /* Reverse the order of the data. */
 
-    byte *bmp_data = (byte *)calloc (area, 1);
+    byte *bmp_data = (byte *)memalloc (area, 1);
     data += (height - 1) * width;
 
     for (i = 0; i < height; ++i)
@@ -99,15 +99,15 @@ static void decomp_writebmp (FILE *bmp, byte *data, int width, int height, byte 
     free (bmp_data);
 }
 
-void decomp_studiotexture (FILE *mdl, const char *bmpdir, studiohdr_t *header, mstudiotexture_t *texture)
+void decomp_studiotexture (FILE *tex, const char *bmpdir, mstudiotexture_t *texture)
 {
     int area = texture->width * texture->height;
 
-    byte *data = (byte *)calloc (area + 768, 1);
+    byte *data = (byte *)memalloc (area + 768, 1);
     byte *palette = data + area;
     
-    mdl_seek (mdl, texture->index, SEEK_SET);
-    mdl_read (mdl, data, area + 768);
+    mdl_seek (tex, texture->index, SEEK_SET);
+    mdl_read (tex, data, area + 768);
 
     FILE *bmp = qc_open (bmpdir, skippath (texture->name), "bmp");
 

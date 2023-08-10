@@ -35,15 +35,16 @@ without written permission from Valve LLC.
 
 void decomp_studiomodel (
     FILE *mdl,
+    FILE *tex,
     const char *smddir,
     studiohdr_t *header,
+    studiohdr_t *textureheader,
     mstudiomodel_t *model,
     const char *nodes);
 
 void decomp_studiotexture (
-    FILE *mdl,
+    FILE *tex,
     const char *bmpdir,
-    studiohdr_t *header,
     mstudiotexture_t *texture);
 
 void decomp_studioanim (
@@ -57,10 +58,12 @@ void decomp_studioanim (
 
 static void decomp_writeinfo (
     FILE *mdl,
+    FILE *tex,
     FILE *qc,
     const char *cd,
     const char *cdtexture,
-    studiohdr_t *header)
+    studiohdr_t *header,
+    studiohdr_t *textureheader)
 {
     qc_write (qc, "/*");
     qc_write (qc, "==============================================================================");
@@ -81,6 +84,35 @@ static void decomp_writeinfo (
         qc_writef (qc, "$eyeposition %g %g %g", vec3_print (header->eyeposition));
         qc_putc (qc, '\n');
     }
+
+    int i;
+    mstudiotexture_t texture;
+
+    mdl_seek (tex, textureheader->textureindex, SEEK_SET);
+    for (i = 0; i < textureheader->numtextures; ++i)
+    {
+        mdl_read (tex, &texture, sizeof (texture));
+
+        if (!(texture.flags & ~(STUDIO_NF_CHROME | STUDIO_NF_FLATSHADE)))
+            continue;
+
+        fixpath (texture.name, true);
+        stripext (texture.name);
+        
+        if (texture.flags & STUDIO_NF_ADDITIVE)
+        {
+            qc_writef (qc, "$texrendermode %s.bmp additive", texture.name);
+        }
+        if (texture.flags & STUDIO_NF_MASKED)
+        {
+            qc_writef (qc, "$texrendermode %s.bmp masked", texture.name);
+        }
+        /* Toodles: Sven Co-op & Xash3D support this. */
+        if (texture.flags & STUDIO_NF_FULLBRIGHT)
+        {
+            qc_writef (qc, "$texrendermode %s.bmp fullbright", texture.name);
+        }
+    }
 }
 
 static char *decomp_makenodes (FILE *mdl, studiohdr_t *header)
@@ -88,7 +120,7 @@ static char *decomp_makenodes (FILE *mdl, studiohdr_t *header)
     char line[45];
     mstudiobone_t bone;
     
-    char *str = (char *)calloc (10 + 45 * header->numbones, 1);
+    char *str = (char *)memalloc (10 + 45 * header->numbones, 1);
 
     mdl_seek (mdl, header->boneindex, SEEK_SET);
     strcat (str, "nodes\n");
@@ -106,7 +138,14 @@ static char *decomp_makenodes (FILE *mdl, studiohdr_t *header)
     return str;
 }
 
-static void decomp_writebodygroups (FILE *mdl, FILE *qc, const char *smddir, studiohdr_t *header, const char *nodes)
+static void decomp_writebodygroups (
+    FILE *mdl,
+    FILE *tex,
+    FILE *qc,
+    const char *smddir,
+    studiohdr_t *header,
+    studiohdr_t *textureheader,
+    const char *nodes)
 {
     int i, j;
     mstudiobodyparts_t bodypart;
@@ -146,7 +185,7 @@ static void decomp_writebodygroups (FILE *mdl, FILE *qc, const char *smddir, stu
                 group ? "    studio \"%s\"" : "$body studio \"%s\"",
                 model.name);
 
-            decomp_studiomodel (mdl, smddir, header, &model, nodes);
+            decomp_studiomodel (mdl, tex, smddir, header, textureheader, &model, nodes);
         }
 
         if (group)
@@ -160,24 +199,24 @@ static void decomp_writebodygroups (FILE *mdl, FILE *qc, const char *smddir, stu
 }
 
 static bool decomp_buildskingroups (
-    FILE *mdl,
+    FILE *tex,
     FILE *qc,
-    studiohdr_t *header,
+    studiohdr_t *textureheader,
     short** out_skin_index,
     bool** out_skin)
 {
     int i, j;
 
-    int families = header->numskinfamilies;
-    int refs = header->numskinref;
+    int families = textureheader->numskinfamilies;
+    int refs = textureheader->numskinref;
     bool any_skins = false;
 
-    bool *skin = (bool *)calloc (refs, sizeof (*skin));
+    bool *skin = (bool *)memalloc (refs, sizeof (*skin));
 
-    short *skin_index = (short *)calloc (families * refs, sizeof (*skin_index));
+    short *skin_index = (short *)memalloc (families * refs, sizeof (*skin_index));
 
-    mdl_seek (mdl, header->skinindex, SEEK_SET);
-    mdl_read (mdl, skin_index, families * refs * sizeof (*skin_index));
+    mdl_seek (tex, textureheader->skinindex, SEEK_SET);
+    mdl_read (tex, skin_index, families * refs * sizeof (*skin_index));
 
     *out_skin_index = skin_index;
     *out_skin = skin;
@@ -203,12 +242,15 @@ static bool decomp_buildskingroups (
     return any_skins;
 }
 
-static void decomp_writeskingroups (FILE *mdl, FILE *qc, studiohdr_t *header)
+static void decomp_writeskingroups (
+    FILE *tex,
+    FILE *qc,
+    studiohdr_t *textureheader)
 {
     short* skin_index;
     bool* skin;
 
-    if (!decomp_buildskingroups (mdl, qc, header, &skin_index, &skin))
+    if (!decomp_buildskingroups (tex, qc, textureheader, &skin_index, &skin))
         goto skins_done;
 
     qc_write (qc, "$texturegroup group");
@@ -219,21 +261,23 @@ static void decomp_writeskingroups (FILE *mdl, FILE *qc, studiohdr_t *header)
 
     char texture_name[64];
 
-    for (i = 0; i < header->numskinref; ++i)
+    for (i = 0; i < textureheader->numskinref; ++i)
     {
         qc_write2f (qc, "    { ");
 
-        for (j = 0; j < header->numskinfamilies; ++j)
+        for (j = 0; j < textureheader->numskinfamilies; ++j)
         {
             if (!skin[j])
                 continue;
             
             mdl_seek (
-                mdl,
-                header->textureindex + sizeof (mstudiotexture_t) * skin_index[i * header->numskinref + j],
+                tex,
+                textureheader->textureindex
+                    + sizeof (mstudiotexture_t)
+                    * skin_index[i * textureheader->numskinref + j],
                 SEEK_SET);
             
-            mdl_read (mdl, &texture_name, sizeof (texture_name));
+            mdl_read (tex, &texture_name, sizeof (texture_name));
             
             fixpath (texture_name, true);
             stripext (texture_name);
@@ -546,7 +590,7 @@ static void decomp_writeanimations (
     mstudiobone_t *bones)
 {
     mstudioseqgroup_t group;
-    char *animname = (char *)calloc (strlen (seq->label) + 16, 1);
+    char *animname = (char *)memalloc (strlen (seq->label) + 16, 1);
     char blendnum[4];
     FILE *smd;
 
@@ -608,7 +652,7 @@ static void decomp_writesequences (
     int animindex;
 
     char *animdir = appenddir (smddir, cdanim);
-    mstudiobone_t *bones = (mstudiobone_t *)calloc (header->numbones, sizeof (*bones));
+    mstudiobone_t *bones = (mstudiobone_t *)memalloc (header->numbones, sizeof (*bones));
 
     mdl_seek (mdl, header->boneindex, SEEK_SET);
     mdl_read (mdl, bones, header->numbones * sizeof (*bones));
@@ -642,7 +686,11 @@ static void decomp_writesequences (
     free (bones);
 }
 
-void decomp_writetextures (FILE *mdl, const char *smddir, const char *cdtexture, studiohdr_t *header)
+void decomp_writetextures (
+    FILE *tex,
+    const char *smddir,
+    const char *cdtexture,
+    studiohdr_t *textureheader)
 {
     int i;
     mstudiotexture_t texture;
@@ -650,15 +698,15 @@ void decomp_writetextures (FILE *mdl, const char *smddir, const char *cdtexture,
 
     char *bmpdir = appenddir (smddir, cdtexture);
 
-    for (i = 0; i < header->numtextures; ++i)
+    for (i = 0; i < textureheader->numtextures; ++i)
     {
-        mdl_seek (mdl, header->textureindex + sizeof (texture) * i, SEEK_SET);
-        mdl_read (mdl, &texture, sizeof (texture));
+        mdl_seek (tex, textureheader->textureindex + sizeof (texture) * i, SEEK_SET);
+        mdl_read (tex, &texture, sizeof (texture));
 
         fixpath (texture.name, true);
         stripext (texture.name);
         
-        decomp_studiotexture (mdl, bmpdir, header, &texture);
+        decomp_studiotexture (tex, bmpdir, &texture);
     }
 
     free (bmpdir);
@@ -673,25 +721,69 @@ void decomp_mdl (
     const char *qcdir,
     const char *smddir)
 {
-    FILE *mdl = mdl_open (mdlname);
+    FILE *mdl = mdl_open (mdlname, false);
     FILE *qc = qc_open (qcdir, qcname, "qc");
 
     studiohdr_t header;
     mdl_read (mdl, &header, sizeof (header));
     fixpath (header.name, false);
 
+    /* Init the texture vars with the regular model info. */
+    FILE *tex = mdl;
+    studiohdr_t textureheader;
+    memcpy (&textureheader, &header, sizeof (textureheader));
+
+    /* Init the texture model if necessary. */
+    if (header.numtextures == 0)
+    {
+        char *texname = (char *)memalloc (strlen (mdlname) + 2, 1);
+        char *name, *ext;
+
+        filebase (mdlname, &name, &ext);
+        
+        strcpy (texname, mdlname);
+        stripext (texname);
+        strcat (texname, "t");
+        strcat (texname, ext);
+
+#ifndef WIN32
+        tex = mdl_open (texname, true);
+        
+        if (!tex)
+        {
+            texname[strlen (mdlname) - strlen (ext)] = '\0';
+            strcat (texname, "T");
+            strcat (texname, ext);
+
+            tex = mdl_open (texname, false);
+        }
+#else
+        tex = mdl_open (texname, false);
+#endif
+
+        free (texname);
+
+        mdl_read (tex, &textureheader, sizeof (textureheader));
+    }
+
     char *nodes = decomp_makenodes (mdl, &header);
 
-    decomp_writeinfo (mdl, qc, cd, cdtexture, &header);
-    decomp_writebodygroups (mdl, qc, smddir, &header, nodes);
-    decomp_writeskingroups (mdl, qc, &header);
+    decomp_writeinfo (mdl, tex, qc, cd, cdtexture, &header, &textureheader);
+    decomp_writebodygroups (mdl, tex, qc, smddir, &header, &textureheader, nodes);
+    decomp_writeskingroups (tex, qc, &textureheader);
     decomp_writeattachments (mdl, qc, &header);
     decomp_writecontrollers (mdl, qc, &header);
     decomp_writehitboxes (mdl, qc, &header);
     decomp_writesequences (mdl, qc, smddir, cdanim, &header, nodes);
-    decomp_writetextures (mdl, smddir, cdtexture, &header);
+    decomp_writetextures (tex, smddir, cdtexture, &textureheader);
 
     free (nodes);
+
+    if (tex != mdl)
+    {
+        fclose (tex);
+        fprintf (stdout, "Done!\n");
+    }
     
     fclose (qc);
     fclose (mdl);
