@@ -34,39 +34,39 @@ without written permission from Valve LLC.
 #include "studio.h"
 
 static void decomp_calcbonevalue (
-    FILE *mdl,
+    FILE *seqgroup,
     int frame,
     float* out,
     float scale,
     int animindex)
 {
     mstudioanimvalue_t value;
-    mdl_seek (mdl, animindex, SEEK_SET);
-    mdl_read (mdl, &value, sizeof (value));
+    mdl_seek (seqgroup, animindex, SEEK_SET);
+    mdl_read (seqgroup, &value, sizeof (value));
 
     while (value.num.total <= frame)
     {
         frame -= value.num.total;
         animindex += sizeof (value) * (value.num.valid + 1);
-        mdl_seek (mdl, animindex, SEEK_SET);
-        mdl_read (mdl, &value, sizeof (value));
+        mdl_seek (seqgroup, animindex, SEEK_SET);
+        mdl_read (seqgroup, &value, sizeof (value));
     }
     
     if (value.num.valid > frame)
     {
-        mdl_seek (mdl, animindex + sizeof (value) * (frame + 1), SEEK_SET);
+        mdl_seek (seqgroup, animindex + sizeof (value) * (frame + 1), SEEK_SET);
     }
     else
     {
-        mdl_seek (mdl, animindex + sizeof (value) * value.num.valid, SEEK_SET);
+        mdl_seek (seqgroup, animindex + sizeof (value) * value.num.valid, SEEK_SET);
     }
 
-    mdl_read (mdl, &value, sizeof (value));
+    mdl_read (seqgroup, &value, sizeof (value));
     *out += value.value * scale;
 }
 
 static void decomp_calcbone (
-    FILE *mdl,
+    FILE *seqgroup,
     int frame,
     mstudiobone_t *bone,
     mstudioanim_t *anim,
@@ -84,7 +84,7 @@ static void decomp_calcbone (
         if (anim->offset[i] != 0)
         {
             decomp_calcbonevalue (
-                mdl,
+                seqgroup,
                 frame,
                 &bone_pos[i],
                 bone->scale[i],
@@ -94,7 +94,7 @@ static void decomp_calcbone (
         if (anim->offset[3 + i] != 0)
         {
             decomp_calcbonevalue (
-                mdl,
+                seqgroup,
                 frame,
                 &bone_rot[i],
                 bone->scale[3 + i],
@@ -104,16 +104,16 @@ static void decomp_calcbone (
 }
 
 void decomp_studioanim (
-    FILE *mdl,
+    FILE *seqgroup,
     FILE *smd,
-    studiohdr_t *header,
     mstudiobone_t *bones,
     int numframes,
+    int numbones,
     int animindex,
     const char *nodes)
 {
-    vec3_t *bone_pos = (vec3_t *)memalloc (header->numbones, sizeof (*bone_pos));
-    vec3_t *bone_rot = (vec3_t *)memalloc (header->numbones, sizeof (*bone_rot));
+    vec3_t *bone_pos = (vec3_t *)memalloc (numbones, sizeof (*bone_pos));
+    vec3_t *bone_rot = (vec3_t *)memalloc (numbones, sizeof (*bone_rot));
 
     qc_write (smd, "version 1");
     qc_write (smd, nodes);
@@ -128,13 +128,13 @@ void decomp_studioanim (
     {
         qc_writef (smd, "  time %i", i);
 
-        for (j = 0; j < header->numbones; ++j)
+        for (j = 0; j < numbones; ++j)
         {
-            mdl_seek (mdl, animindex + sizeof (anim) * j, SEEK_SET);
-            mdl_read (mdl, &anim, sizeof (anim));
+            mdl_seek (seqgroup, animindex + sizeof (anim) * j, SEEK_SET);
+            mdl_read (seqgroup, &anim, sizeof (anim));
 
             decomp_calcbone (
-                mdl,
+                seqgroup,
                 i,
                 bones + j,
                 &anim,

@@ -48,11 +48,11 @@ void decomp_studiotexture (
     mstudiotexture_t *texture);
 
 void decomp_studioanim (
-    FILE *mdl,
+    FILE *seqgroup,
     FILE *smd,
-    studiohdr_t *header,
     mstudiobone_t *bones,
     int numframes,
+    int numbones,
     int animindex,
     const char *nodes);
 
@@ -77,16 +77,17 @@ static void decomp_writeinfo (
     qc_writef (qc, "$modelname %s", header->name);
     qc_writef (qc, "$cd %s", cd);
     qc_writef (qc, "$cdtexture %s", cdtexture);
-    qc_putc (qc, '\n');
-
-    if (vec3_nonzero (header->eyeposition))
+    
+    if (header->numtextures == 0)
     {
-        qc_writef (qc, "$eyeposition %g %g %g", vec3_print (header->eyeposition));
-        qc_putc (qc, '\n');
+        qc_write (qc, "$externaltextures");
     }
+
+    qc_putc (qc, '\n');
 
     int i;
     mstudiotexture_t texture;
+    bool wrote = false;
 
     mdl_seek (tex, textureheader->textureindex, SEEK_SET);
     for (i = 0; i < textureheader->numtextures; ++i)
@@ -102,16 +103,30 @@ static void decomp_writeinfo (
         if (texture.flags & STUDIO_NF_ADDITIVE)
         {
             qc_writef (qc, "$texrendermode %s.bmp additive", texture.name);
+            wrote = true;
         }
         if (texture.flags & STUDIO_NF_MASKED)
         {
             qc_writef (qc, "$texrendermode %s.bmp masked", texture.name);
+            wrote = true;
         }
         /* Toodles: Sven Co-op & Xash3D support this. */
         if (texture.flags & STUDIO_NF_FULLBRIGHT)
         {
             qc_writef (qc, "$texrendermode %s.bmp fullbright", texture.name);
+            wrote = true;
         }
+    }
+    
+    if (wrote)
+    {
+        qc_putc (qc, '\n');
+    }
+
+    if (vec3_nonzero (header->eyeposition))
+    {
+        qc_writef (qc, "$eyeposition %g %g %g", vec3_print (header->eyeposition));
+        qc_putc (qc, '\n');
     }
 }
 
@@ -166,19 +181,18 @@ static void decomp_writebodygroups (
             qc_putc (qc, '\n');
         }
 
-        mdl_seek (mdl, bodypart.modelindex, SEEK_SET);
-
         for (j = 0; j < bodypart.nummodels; ++j)
         {
+            mdl_seek (mdl, bodypart.modelindex + sizeof (model) * j, SEEK_SET);
             mdl_read (mdl, &model, sizeof(model));
 
-            fixpath (model.name, true);
-
-            if (!strcasecmp (model.name, "blank"))
+            if (!strcasecmp (model.name, "blank") || strlen (model.name) == 0)
             {
                 qc_write (qc, group ? "    blank" : "blank");
                 continue;
             }
+
+            fixpath (model.name, true);
             
             qc_writef (
                 qc,
@@ -583,6 +597,7 @@ static void decomp_writeseqdesc (
 
 static void decomp_writeanimations (
     FILE *mdl,
+    FILE **seqgroups,
     const char *animdir,
     studiohdr_t *header,
     const char *nodes,
@@ -597,8 +612,15 @@ static void decomp_writeanimations (
     mdl_seek (mdl, header->seqgroupindex + sizeof (group) * seq->seqgroup, SEEK_SET);
     mdl_read (mdl, &group, sizeof (group));
 
-    /* Toodles TODO: Support external animation groups. */
+    FILE *seqgroup = mdl;
     int animindex = group.unused2 + seq->animindex;
+
+    if (seq->seqgroup > 0)
+    {
+        seqgroup = seqgroups[seq->seqgroup];
+        animindex = seq->animindex;
+    }
+
     int i;
 
     for (i = 0; i < seq->numblends; ++i)
@@ -607,7 +629,7 @@ static void decomp_writeanimations (
 
         if (seq->numblends == 2)
         {
-            strcat (animname, i == 0 ? "down" : "up");
+            strcat (animname, i == 0 ? "_down" : "_up");
         }
         else if (seq->numblends > 2)
         {
@@ -619,12 +641,12 @@ static void decomp_writeanimations (
         smd = qc_open (animdir, animname, "smd");
 
         decomp_studioanim (
-            mdl,
+            seqgroup,
             smd,
-            header,
             bones,
             seq->numframes,
-            animindex + sizeof (mstudioanim_t) * i,
+            header->numbones,
+            animindex + sizeof (mstudioanim_t) * header->numbones * i,
             nodes);
 
         fclose (smd);
@@ -636,6 +658,7 @@ static void decomp_writeanimations (
 
 static void decomp_writesequences (
     FILE *mdl,
+    FILE **seqgroups,
     FILE *qc,
     const char *smddir,
     const char *cdanim,
@@ -649,7 +672,6 @@ static void decomp_writesequences (
 
     mstudioseqdesc_t seq;
     mstudioseqgroup_t group;
-    int animindex;
 
     char *animdir = appenddir (smddir, cdanim);
     mstudiobone_t *bones = (mstudiobone_t *)memalloc (header->numbones, sizeof (*bones));
@@ -666,7 +688,7 @@ static void decomp_writesequences (
 
         fixpath (seq.label, true);
 
-        decomp_writeanimations (mdl, animdir, header, nodes, &seq, bones);
+        decomp_writeanimations (mdl, seqgroups, animdir, header, nodes, &seq, bones);
 
         if (!decomp_simplesequence (&seq))
         {
@@ -712,6 +734,66 @@ void decomp_writetextures (
     free (bmpdir);
 }
 
+static void decomp_loadtextures (
+    const char *mdlname,
+    FILE **tex,
+    studiohdr_t *textureheader)
+{
+    char *texname = (char *)memalloc (strlen (mdlname) + 2, 1);
+    char *name, *ext;
+
+    filebase (mdlname, &name, &ext);
+    
+    strcpy (texname, mdlname);
+    stripext (texname);
+    strcat (texname, "t");
+    strcat (texname, ext);
+
+#ifndef WIN32
+    *tex = mdl_open (texname, IDSTUDIOHEADER, true);
+    
+    if (!tex)
+    {
+        texname[strlen (mdlname) - strlen (ext)] = '\0';
+        strcat (texname, "T");
+        strcat (texname, ext);
+
+        *tex = mdl_open (texname, IDSTUDIOHEADER, false);
+    }
+#else
+    *tex = mdl_open (texname, IDSTUDIOHEADER, false);
+#endif
+
+    free (texname);
+
+    mdl_read (*tex, textureheader, sizeof (*textureheader));
+}
+
+static void decomp_loadseqgroups (
+    const char *mdlname,
+    FILE ***seqgroups,
+    studioseqhdr_t **seqheaders,
+    int numseqgroups)
+{
+    int i;
+    char *seqgroupname = (char *)memalloc (strlen (mdlname) + 3, 1);
+
+    *seqgroups = (FILE **)memalloc (numseqgroups, sizeof (**seqgroups));
+    *seqheaders = (studioseqhdr_t *)memalloc (numseqgroups, sizeof (**seqheaders));
+
+    for (i = 1; i < numseqgroups; ++i)
+    {
+        strcpy (seqgroupname, mdlname);
+        sprintf (&seqgroupname[strlen(seqgroupname) - 4], "%02d.mdl", i);
+        
+        (*seqgroups)[i] = mdl_open(seqgroupname, IDSTUDIOSEQHEADER, false);
+
+        mdl_read((*seqgroups)[i], &(*seqheaders)[i], sizeof (**seqheaders));
+    }
+
+    free (seqgroupname);
+}
+
 void decomp_mdl (
     const char *mdlname,
     const char *qcname,
@@ -721,7 +803,7 @@ void decomp_mdl (
     const char *qcdir,
     const char *smddir)
 {
-    FILE *mdl = mdl_open (mdlname, false);
+    FILE *mdl = mdl_open (mdlname, IDSTUDIOHEADER, false);
     FILE *qc = qc_open (qcdir, qcname, "qc");
 
     studiohdr_t header;
@@ -736,34 +818,15 @@ void decomp_mdl (
     /* Init the texture model if necessary. */
     if (header.numtextures == 0)
     {
-        char *texname = (char *)memalloc (strlen (mdlname) + 2, 1);
-        char *name, *ext;
+        decomp_loadtextures (mdlname, &tex, &textureheader);
+    }
 
-        filebase (mdlname, &name, &ext);
-        
-        strcpy (texname, mdlname);
-        stripext (texname);
-        strcat (texname, "t");
-        strcat (texname, ext);
+    FILE **seqgroups;
+    studioseqhdr_t *seqheaders;
 
-#ifndef WIN32
-        tex = mdl_open (texname, true);
-        
-        if (!tex)
-        {
-            texname[strlen (mdlname) - strlen (ext)] = '\0';
-            strcat (texname, "T");
-            strcat (texname, ext);
-
-            tex = mdl_open (texname, false);
-        }
-#else
-        tex = mdl_open (texname, false);
-#endif
-
-        free (texname);
-
-        mdl_read (tex, &textureheader, sizeof (textureheader));
+    if (header.numseqgroups > 1)
+    {
+        decomp_loadseqgroups (mdlname, &seqgroups, &seqheaders, header.numseqgroups);
     }
 
     char *nodes = decomp_makenodes (mdl, &header);
@@ -774,12 +837,24 @@ void decomp_mdl (
     decomp_writeattachments (mdl, qc, &header);
     decomp_writecontrollers (mdl, qc, &header);
     decomp_writehitboxes (mdl, qc, &header);
-    decomp_writesequences (mdl, qc, smddir, cdanim, &header, nodes);
+    decomp_writesequences (mdl, seqgroups, qc, smddir, cdanim, &header, nodes);
     decomp_writetextures (tex, smddir, cdtexture, &textureheader);
 
     free (nodes);
 
-    if (tex != mdl)
+    if (header.numseqgroups > 1)
+    {
+        int i;
+        for (i = 1; i < header.numseqgroups; ++i)
+        {
+            fclose (seqgroups[i]);
+            fprintf (stdout, "Done!\n");
+        }
+        free (seqheaders);
+        free (seqgroups);
+    }
+
+    if (header.numtextures == 0)
     {
         fclose (tex);
         fprintf (stdout, "Done!\n");

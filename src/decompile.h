@@ -75,7 +75,7 @@ void concattransforms (const mat4x3_t in1, const mat4x3_t in2, mat4x3_t out);
 void vectortransform (const vec3_t in1, const mat4x3_t in2, vec3_t out);
 void vectorrotate (const vec3_t in1, const mat4x3_t in2, vec3_t out);
 
-FILE *mdl_open (const char *filename, int safe);
+FILE *mdl_open (const char *filename, int identifier, int safe);
 void mdl_read (FILE *stream, void *dst, size_t size);
 void mdl_seek (FILE *stream, long off, int whence);
 char* mdl_getmotionflag (int type);

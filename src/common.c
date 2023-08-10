@@ -234,7 +234,7 @@ void *memalloc (size_t nmemb, size_t size)
     return ptr;
 }
 
-FILE *mdl_open (const char *filename, int safe)
+FILE *mdl_open (const char *filename, int identifier, int safe)
 {
     if (!safe)
         fprintf (stdout, "Reading from \"%s\"...\n", filename);
@@ -254,7 +254,7 @@ FILE *mdl_open (const char *filename, int safe)
     int32_t id;
     mdl_read (stream, &id, sizeof (id));
 
-    if (id != IDSTUDIOHEADER)
+    if (id != identifier)
         error (1, "Not a Valve MDL\n");
 
     int32_t version;
