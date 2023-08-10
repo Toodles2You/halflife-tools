@@ -142,7 +142,7 @@ char *appenddir (char *path, char *dir)
 
     bool slash = path[path_len - 1] != '/';
 
-    char *new_path = (char *)memalloc (path_len + slash + dir_len, 1);
+    char *new_path = (char *)memalloc (path_len + slash + dir_len + 1, 1);
     strcpy (new_path, path);
 
     if (slash)
