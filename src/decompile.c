@@ -212,103 +212,160 @@ static void decomp_writebodygroups (
     qc_putc (qc, '\n');
 }
 
-static bool decomp_buildskingroups (
+typedef struct {
+    int first;
+    int length;
+    void *next;
+    char channels[];
+} texturegroup_t;
+
+static void decomp_writeskingroups (
+    FILE *mdl,
     FILE *tex,
     FILE *qc,
-    studiohdr_t *textureheader,
-    short** out_skin_index,
-    bool** out_skin)
+    studiohdr_t *header,
+    studiohdr_t *textureheader)
 {
-    int i, j;
+    mstudiobodyparts_t bodypart;
+    mstudiomodel_t model;
+    mstudiomesh_t mesh;
+    char texture_name[64];
+    int i, j, k, l;
 
-    int families = textureheader->numskinfamilies;
-    int refs = textureheader->numskinref;
-    bool any_skins = false;
+    int numtexturegroups = 0;
+    bool foundgroup;
+    texturegroup_t texturegroup;
+    texturegroup_t *texturegroups = NULL;
+    texturegroup_t *currentgroup;
+    texturegroup_t *newgroup;
 
-    bool *skin = (bool *)memalloc (refs, sizeof (*skin));
-
-    short *skin_index = (short *)memalloc (families * refs, sizeof (*skin_index));
+    short *skins = (short *)memalloc (textureheader->numskinfamilies * textureheader->numskinref, sizeof (*skins));
+    short *start, *end, *cur;
 
     mdl_seek (tex, textureheader->skinindex, SEEK_SET);
-    mdl_read (tex, skin_index, families * refs * sizeof (*skin_index));
+    mdl_read (tex, skins, textureheader->numskinfamilies * textureheader->numskinref * sizeof (*skins));
 
-    *out_skin_index = skin_index;
-    *out_skin = skin;
-
-    /*
-    Toodles TODO: This should recreate all the original skin groups.
-    They aren't actually needed; It's just for accuracy and clarity.
-    */
-
-    for (i = 0; i < families; ++i)
+    for (i = 0; i < header->numbodyparts; ++i)
     {
-        for (j = 0; j < refs; ++j)
+        mdl_seek (mdl, header->bodypartindex + sizeof (bodypart) * i, SEEK_SET);
+        mdl_read (mdl, &bodypart, sizeof (bodypart));
+
+        for (j = 0; j < bodypart.nummodels; ++j)
         {
-            if (!skin[j] && i > 0
-                && skin_index[i * refs + j] != skin_index[(i - 1) * refs + j])
+            mdl_seek (mdl, bodypart.modelindex + sizeof (model) * j, SEEK_SET);
+            mdl_read (mdl, &model, sizeof(model));
+
+            if (!strcasecmp (model.name, "blank") || strlen (model.name) == 0)
+                continue;
+
+            for (k = 0; k < model.nummesh; ++k)
             {
-                skin[j] = true;
-                any_skins = true;
+                mdl_seek (mdl, model.meshindex + sizeof (mesh) * k, SEEK_SET);
+                mdl_read (mdl, &mesh, sizeof (mesh));
+
+                start = end = cur = skins + mesh.skinref;
+
+                texturegroup.first = 0;
+                texturegroup.length = 1;
+
+                for (l = 1; l < textureheader->numskinfamilies; ++l)
+                {
+                    cur += textureheader->numskinref;
+
+                    if (*cur != *start)
+                    {
+                        end = cur;
+                        texturegroup.length++;
+                    }
+                    else
+                    {
+                        start = end = cur;
+                        texturegroup.first = l;
+                        texturegroup.length = 1;
+                    }
+                }
+
+                if (start == end)
+                    continue;
+
+                foundgroup = false;
+                currentgroup = texturegroups;
+
+                while (currentgroup != NULL)
+                {
+                    if (texturegroup.first == currentgroup->first
+                        && texturegroup.length == currentgroup->length)
+                    {
+                        currentgroup->channels[mesh.skinref] = true;
+                        foundgroup = true;
+                        break;
+                    }
+                    currentgroup = currentgroup->next;
+                }
+
+                if (!foundgroup)
+                {
+                    newgroup = (texturegroup_t *)memalloc (1, sizeof (*newgroup) + textureheader->numskinref);
+                    memcpy (newgroup, &texturegroup, sizeof (texturegroup));
+                    newgroup->channels[mesh.skinref] = true;
+                    newgroup->next = texturegroups;
+                    texturegroups = newgroup;
+                    numtexturegroups++;
+                }
             }
         }
     }
 
-    return any_skins;
-}
-
-static void decomp_writeskingroups (
-    FILE *tex,
-    FILE *qc,
-    studiohdr_t *textureheader)
-{
-    short* skin_index;
-    bool* skin;
-
-    if (!decomp_buildskingroups (tex, qc, textureheader, &skin_index, &skin))
+    if (numtexturegroups == 0)
         goto skins_done;
+    
+    numtexturegroups = 0;
+    currentgroup = texturegroups;
 
-    qc_write (qc, "$texturegroup group");
-    qc_putc (qc, '{');
-    qc_putc (qc, '\n');
-
-    int i, j;
-
-    char texture_name[64];
-
-    for (i = 0; i < textureheader->numskinref; ++i)
+    while (currentgroup != NULL)
     {
-        qc_write2f (qc, "    { ");
+        numtexturegroups++;
+        qc_writef (qc, "$texturegroup group%i", numtexturegroups);
+        qc_putc (qc, '{');
+        qc_putc (qc, '\n');
 
-        for (j = 0; j < textureheader->numskinfamilies; ++j)
+        cur = skins + textureheader->numskinref * currentgroup->first;
+
+        for (i = currentgroup->first; i < currentgroup->first + currentgroup->length; ++i)
         {
-            if (!skin[j])
-                continue;
+            qc_write2f (qc, "    { ");
+
+            for (j = 0; j < textureheader->numskinref; ++j)
+            {
+                if (!currentgroup->channels[j])
+                    continue;
+
+                mdl_seek (tex, textureheader->textureindex + sizeof (mstudiotexture_t) * cur[j], SEEK_SET);
+                mdl_read (tex, &texture_name, sizeof (texture_name));
+
+                fixpath (texture_name, true);
+                stripext (texture_name);
+
+                qc_write2f (qc, "\"%s.bmp\" ", skippath (texture_name));
+            }
             
-            mdl_seek (
-                tex,
-                textureheader->textureindex
-                    + sizeof (mstudiotexture_t)
-                    * skin_index[i * textureheader->numskinref + j],
-                SEEK_SET);
-            
-            mdl_read (tex, &texture_name, sizeof (texture_name));
-            
-            fixpath (texture_name, true);
-            stripext (texture_name);
-            
-            qc_write2f (qc, "\"%s.bmp\" ", skippath (texture_name));
+            qc_putc (qc, '}');
+            qc_putc (qc, '\n');
+
+            cur += textureheader->numskinref;
         }
 
         qc_putc (qc, '}');
         qc_putc (qc, '\n');
-    }
 
-    qc_putc (qc, '}');
+        newgroup = currentgroup->next;
+        free (currentgroup);
+        currentgroup = newgroup;
+    }
     qc_putc (qc, '\n');
 
 skins_done:
-    free (skin);
-    free (skin_index);
+    free (skins);
 }
 
 static void decomp_writeattachments (FILE *mdl, FILE *qc, studiohdr_t *header)
@@ -833,7 +890,7 @@ void decomp_mdl (
 
     decomp_writeinfo (mdl, tex, qc, cd, cdtexture, &header, &textureheader);
     decomp_writebodygroups (mdl, tex, qc, smddir, &header, &textureheader, nodes);
-    decomp_writeskingroups (tex, qc, &textureheader);
+    decomp_writeskingroups (mdl, tex, qc, &header, &textureheader);
     decomp_writeattachments (mdl, qc, &header);
     decomp_writecontrollers (mdl, qc, &header);
     decomp_writehitboxes (mdl, qc, &header);
