@@ -32,23 +32,17 @@ without written permission from Valve LLC.
 #include "decompile.h"
 #include "studio.h"
 
-static void decomp_writenodes (
-    FILE *mdl,
-    FILE *smd,
+static void decomp_bonetransform (
     studiohdr_t *header,
     mstudiobone_t *bones,
     mat4x3_t *bone_transform)
 {
-    qc_write (smd, "nodes");
-
     int i;
     vec4_t bone_quat;
     mat4x3_t bone_matrix;
 
     for (i = 0; i < header->numbones; ++i)
     {
-        qc_writef (smd, "  %i \"%s\" %i", i, bones[i].name, bones[i].parent);
-
         anglequaternion (bones[i].value + 3, bone_quat);
         quaternionmatrix (bone_quat, bone_matrix);
 
@@ -65,8 +59,6 @@ static void decomp_writenodes (
             concattransforms (bone_transform[bones[i].parent], bone_matrix, bone_transform[i]);
         }
     }
-
-    qc_write (smd, "end");
 }
 
 static void decomp_writeskeleton (
@@ -286,7 +278,12 @@ static void decomp_meshes (
     free (verts);
 } 
 
-void decomp_studiomodel (FILE *mdl, const char *smddir, studiohdr_t *header, mstudiomodel_t *model)
+void decomp_studiomodel (
+    FILE *mdl,
+    const char *smddir,
+    studiohdr_t *header,
+    mstudiomodel_t *model,
+    const char *nodes)
 {
     FILE *smd = qc_open (smddir, model->name, "smd");
 
@@ -294,16 +291,12 @@ void decomp_studiomodel (FILE *mdl, const char *smddir, studiohdr_t *header, mst
     mat4x3_t *bone_transform = (mat4x3_t *)calloc (header->numbones, sizeof (*bone_transform));
 
     qc_write (smd, "version 1");
+    qc_write (smd, nodes);
 
     mdl_seek (mdl, header->boneindex, SEEK_SET);
     mdl_read (mdl, bones, header->numbones * sizeof (*bones));
 
-    decomp_writenodes (
-        mdl,
-        smd,
-        header,
-        bones,
-        bone_transform);
+    decomp_bonetransform (header, bones, bone_transform);
     
     qc_write (smd, "skeleton");
     decomp_writeskeleton (mdl, smd, header, bones, 0);

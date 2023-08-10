@@ -58,6 +58,7 @@ void fixpath (char *str, bool lower);
 char *skippath (char *str);
 void stripext (char *str);
 void stripfilename (char *str);
+char *appenddir (char *path, char *dir);
 void filebase (char *str, char **name, char **ext);
 void strlwr (char *str);
 bool makepath (const char *path);

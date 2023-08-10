@@ -37,13 +37,23 @@ void decomp_studiomodel (
     FILE *mdl,
     const char *smddir,
     studiohdr_t *header,
-    mstudiomodel_t *model);
+    mstudiomodel_t *model,
+    const char *nodes);
 
 void decomp_studiotexture (
     FILE *mdl,
     const char *bmpdir,
     studiohdr_t *header,
     mstudiotexture_t *texture);
+
+void decomp_studioanim (
+    FILE *mdl,
+    FILE *smd,
+    studiohdr_t *header,
+    mstudiobone_t *bones,
+    int numframes,
+    int animindex,
+    const char *nodes);
 
 static void decomp_writeinfo (
     FILE *mdl,
@@ -73,7 +83,30 @@ static void decomp_writeinfo (
     }
 }
 
-static void decomp_writebodygroups (FILE *mdl, FILE *qc, const char *smddir, studiohdr_t *header)
+static char *decomp_makenodes (FILE *mdl, studiohdr_t *header)
+{
+    char line[45];
+    mstudiobone_t bone;
+    
+    char *str = (char *)calloc (10 + 45 * header->numbones, 1);
+
+    mdl_seek (mdl, header->boneindex, SEEK_SET);
+    strcat (str, "nodes\n");
+
+    int i;
+    for (i = 0; i < header->numbones; ++i)
+    {
+        mdl_read (mdl, &bone, sizeof (bone));
+        sprintf (line, "  %i \"%s\" %i\n", i, bone.name, bone.parent);
+        strcat (str, line);
+    }
+
+    strcat (str, "end");
+
+    return str;
+}
+
+static void decomp_writebodygroups (FILE *mdl, FILE *qc, const char *smddir, studiohdr_t *header, const char *nodes)
 {
     int i, j;
     mstudiobodyparts_t bodypart;
@@ -113,7 +146,7 @@ static void decomp_writebodygroups (FILE *mdl, FILE *qc, const char *smddir, stu
                 group ? "    studio \"%s\"" : "$body studio \"%s\"",
                 model.name);
 
-            decomp_studiomodel (mdl, smddir, header, &model);
+            decomp_studiomodel (mdl, smddir, header, &model, nodes);
         }
 
         if (group)
@@ -336,24 +369,24 @@ static bool decomp_simplesequence (mstudioseqdesc_t *seq)
         && (seq->motiontype & STUDIO_TYPES) == 0;
 }
 
-static void decomp_writeseqblends (FILE *qc, mstudioseqdesc_t *seq)
+static void decomp_writeseqblends (FILE *qc, const char *cdanim, mstudioseqdesc_t *seq)
 {
     if (seq->numblends <= 1)
     {
-        qc_writef (qc, "    \"anims/%s\"", seq->label);
+        qc_writef (qc, "    \"%s/%s\"", cdanim, seq->label);
     }
     else if (seq->numblends == 2)
     {
         /* I'm certain this is always the case with official models. */
-        qc_writef (qc, "    \"anims/%s_down\"", seq->label);
-        qc_writef (qc, "    \"anims/%s_up\"", seq->label);
+        qc_writef (qc, "    \"%s/%s_down\"", cdanim, seq->label);
+        qc_writef (qc, "    \"%s/%s_up\"", cdanim, seq->label);
     }
     else
     {
         int i;
         for (i = 0; i < seq->numblends; ++i)
         {
-            qc_writef (qc, "    \"anims/%s_blend_%.02i\"", seq->label, i);
+            qc_writef (qc, "    \"%s/%s_blend_%.02i\"", cdanim, seq->label, i);
         }
     }
 
@@ -482,6 +515,7 @@ static void decomp_writeseqevents (FILE *mdl, FILE *qc, mstudioseqdesc_t *seq)
 static void decomp_writeseqdesc (
     FILE *mdl,
     FILE *qc,
+    const char *cdanim,
     studiohdr_t *header,
     mstudioseqdesc_t *seq)
 {
@@ -491,7 +525,7 @@ static void decomp_writeseqdesc (
     qc_putc (qc, '{');
     qc_putc (qc, '\n');
     
-    decomp_writeseqblends (qc, seq);
+    decomp_writeseqblends (qc, cdanim, seq);
     decomp_writeseqact (qc, seq);
     decomp_writeseqpivots (mdl, qc, seq);
     decomp_writeseqblendtype (qc, seq);
@@ -503,14 +537,81 @@ static void decomp_writeseqdesc (
     qc_putc (qc, '\n');
 }
 
-static void decomp_writesequences (FILE *mdl, FILE *qc, studiohdr_t *header)
+static void decomp_writeanimations (
+    FILE *mdl,
+    const char *animdir,
+    studiohdr_t *header,
+    const char *nodes,
+    mstudioseqdesc_t *seq,
+    mstudiobone_t *bones)
+{
+    mstudioseqgroup_t group;
+    char *animname = (char *)calloc (strlen (seq->label) + 16, 1);
+    char blendnum[4];
+    FILE *smd;
+
+    mdl_seek (mdl, header->seqgroupindex + sizeof (group) * seq->seqgroup, SEEK_SET);
+    mdl_read (mdl, &group, sizeof (group));
+
+    /* Toodles TODO: Support external animation groups. */
+    int animindex = group.unused2 + seq->animindex;
+    int i;
+
+    for (i = 0; i < seq->numblends; ++i)
+    {
+        strcpy (animname, seq->label);
+
+        if (seq->numblends == 2)
+        {
+            strcat (animname, i == 0 ? "down" : "up");
+        }
+        else if (seq->numblends > 2)
+        {
+            strcat (animname, "_blend_");
+            snprintf (blendnum, 8, "%.02i", i);
+            strcat (animname, blendnum);
+        }
+
+        smd = qc_open (animdir, animname, "smd");
+
+        decomp_studioanim (
+            mdl,
+            smd,
+            header,
+            bones,
+            seq->numframes,
+            animindex + sizeof (mstudioanim_t) * i,
+            nodes);
+
+        fclose (smd);
+        fprintf (stdout, "Done!\n");
+    }
+
+    free (animname);
+}
+
+static void decomp_writesequences (
+    FILE *mdl,
+    FILE *qc,
+    const char *smddir,
+    const char *cdanim,
+    studiohdr_t *header,
+    const char *nodes)
 {
     if (header->numseq <= 0)
         return;
     
-    int i;
+    int i, j;
 
     mstudioseqdesc_t seq;
+    mstudioseqgroup_t group;
+    int animindex;
+
+    char *animdir = appenddir (smddir, cdanim);
+    mstudiobone_t *bones = (mstudiobone_t *)calloc (header->numbones, sizeof (*bones));
+
+    mdl_seek (mdl, header->boneindex, SEEK_SET);
+    mdl_read (mdl, bones, header->numbones * sizeof (*bones));
 
     for (i = 0; i < header->numseq; ++i)
     {
@@ -521,26 +622,33 @@ static void decomp_writesequences (FILE *mdl, FILE *qc, studiohdr_t *header)
 
         fixpath (seq.label, true);
 
+        decomp_writeanimations (mdl, animdir, header, nodes, &seq, bones);
+
         if (!decomp_simplesequence (&seq))
         {
-            decomp_writeseqdesc (mdl, qc, header, &seq);
+            decomp_writeseqdesc (mdl, qc, cdanim, header, &seq);
             continue;
         }
 
-        qc_write2f (qc, " \"anims/%s\" fps %g", seq.label, seq.fps);
+        qc_write2f (qc, " \"%s/%s\" fps %g", cdanim, seq.label, seq.fps);
         
         if (seq.flags & STUDIO_LOOPING)
             qc_write2f (qc, " loop");
         
         qc_putc (qc, '\n');
     }
+
+    free (animdir);
+    free (bones);
 }
 
-void decomp_writetextures (FILE *mdl, const char *bmpdir, studiohdr_t *header)
+void decomp_writetextures (FILE *mdl, const char *smddir, const char *cdtexture, studiohdr_t *header)
 {
     int i;
     mstudiotexture_t texture;
     char *name, *ext;
+
+    char *bmpdir = appenddir (smddir, cdtexture);
 
     for (i = 0; i < header->numtextures; ++i)
     {
@@ -552,6 +660,8 @@ void decomp_writetextures (FILE *mdl, const char *bmpdir, studiohdr_t *header)
         
         decomp_studiotexture (mdl, bmpdir, header, &texture);
     }
+
+    free (bmpdir);
 }
 
 void decomp_mdl (
@@ -559,9 +669,9 @@ void decomp_mdl (
     const char *qcname,
     const char *cd,
     const char *cdtexture,
+    const char *cdanim,
     const char *qcdir,
-    const char *smddir,
-    const char *bmpdir)
+    const char *smddir)
 {
     FILE *mdl = mdl_open (mdlname);
     FILE *qc = qc_open (qcdir, qcname, "qc");
@@ -570,29 +680,42 @@ void decomp_mdl (
     mdl_read (mdl, &header, sizeof (header));
     fixpath (header.name, false);
 
+    char *nodes = decomp_makenodes (mdl, &header);
+
     decomp_writeinfo (mdl, qc, cd, cdtexture, &header);
-    decomp_writebodygroups (mdl, qc, smddir, &header);
+    decomp_writebodygroups (mdl, qc, smddir, &header, nodes);
     decomp_writeskingroups (mdl, qc, &header);
     decomp_writeattachments (mdl, qc, &header);
     decomp_writecontrollers (mdl, qc, &header);
     decomp_writehitboxes (mdl, qc, &header);
-    decomp_writesequences (mdl, qc, &header);
-    decomp_writetextures (mdl, bmpdir, &header);
+    decomp_writesequences (mdl, qc, smddir, cdanim, &header, nodes);
+    decomp_writetextures (mdl, smddir, cdtexture, &header);
 
+    free (nodes);
+    
     fclose (qc);
     fclose (mdl);
 
     fprintf (stdout, "Done!\n");
 }
 
-static int getargs (int argc, char **argv)
+static int getargs (
+    int argc,
+    char **argv,
+    char **cd,
+    bool *havecd,
+    char **cdtexture,
+    char **cdanim)
 {
     if (argc < 2)
     {
 print_help:
         fprintf (stdout, "Usage: decompmdl [options...] <input file> [<output file>]\n\n");
         fprintf (stdout, "Options:\n");
-        fprintf (stdout, "\t-h --help\t\tDisplay this message and exit\n");
+        fprintf (stdout, "\t-help\t\t\tDisplay this message and exit.\n\n");
+        fprintf (stdout, "\t-cd <path>\t\tSets the data path. Default: \".\"\n\t\t\t\tIf set, data will be placed relative to root path.\n\n");
+        fprintf (stdout, "\t-cdtexture <path>\tSets the texture path, relative to data path. Default: \"./maps_8bit\"\n\n");
+        fprintf (stdout, "\t-cdanim <path>\t\tSets the animation path, relative to data path. Default: \"./anims\"\n\n");
         exit (0);
     }
 
@@ -603,9 +726,28 @@ print_help:
         if (argv[i][0] != '-')
             break;
         
-        if (!strcmp (argv[i], "-h") || !strcmp (argv[i], "--help"))
+        if (!strcmp (argv[i], "-help"))
         {
             goto print_help;
+        }
+        else if (!strcmp (argv[i], "-cd"))
+        {
+            *cd = argv[i + 1];
+            *havecd = true;
+            fprintf (stdout, "Data path set to: \"%s\"\n", *cd);
+            ++i;
+        }
+        else if (!strcmp (argv[i], "-cdtexture"))
+        {
+            *cdtexture = argv[i + 1];
+            fprintf (stdout, "Texture path set to: \"%s\"\n", *cdtexture);
+            ++i;
+        }
+        else if (!strcmp (argv[i], "-cdanim"))
+        {
+            *cdanim = argv[i + 1];
+            fprintf (stdout, "Animation path set to: \"%s\"\n", *cdanim);
+            ++i;
         }
         else
         {
@@ -624,98 +766,81 @@ print_help:
 static void getdirs (
     char *in,
     char *out,
-    char *cd,
-    char *cdtexture,
     char **qcdir,
     char **qcname,
-    char **smddir,
-    char **bmpdir)
+    bool havecd)
 {
-    if (!out)
+    if (havecd)
     {
-        *qcname = strdup (in);
+        *qcdir = ".";
+    }
+
+    if (!out) /* Put files in sub directory. */
+    {
+        *qcname = strdup (skippath (in));
         stripext (*qcname);
 
-        *qcdir = strdup (skippath (*qcname));
-    }
-    else
-    {
-        char *name, *ext;
-        *qcdir = strdup (out);
-        
-        filebase (out, &name, &ext);
-        
-        if (*ext != '\0')
+        if (!havecd)
         {
-            *qcname = strdup (out);
+            *qcdir = strdup (*qcname);
+        }
+        return;
+    }
+
+    char *name, *ext;
+    
+    filebase (out, &name, &ext);
+    
+    if (*ext) /* QC name provided. Put files in root directory. */
+    {
+        *qcname = strdup (out);
+        stripext (*qcname);
+
+        if (!havecd)
+        {
+            *qcdir = strdup (out);
             stripfilename (*qcdir);
         }
-        else
-        {
-            *qcname = strdup (in);
-            stripext (*qcdir);
-        }
-
-        stripext (*qcname);
     }
+    else /* Put files in sub directory. */
+    {
+        *qcname = strdup (skippath (in));
+        stripext (*qcname);
 
-    size_t len;
-
-    len = strlen (*qcdir) + strlen (cd) + 8;
-
-    *smddir = (char *)calloc (len, 1);
-    strcpy (*smddir, *qcdir);
-
-    len = strlen (*smddir);
-
-    if ((*smddir)[len - 1] != '/')
-        strcat (*smddir, "/");
-    
-    strcat (*smddir, cd);
-
-    len = strlen (*smddir) + strlen (cdtexture) + 8;
-
-    *bmpdir = (char *)calloc (len, 1);
-    strcpy (*bmpdir, *smddir);
-
-    len = strlen (*bmpdir);
-
-    if ((*bmpdir)[len - 1] != '/')
-        strcat (*bmpdir, "/");
-    
-    strcat (*bmpdir, cdtexture);
-
-    /*
-    fprintf (
-        stdout,
-        "\"%s\"\n\"%s\"\n\"%s\"\n\"%s\"\n",
-        skippath (*qcname),
-        *qcdir,
-        *smddir,
-        *bmpdir);
-    */
+        if (!havecd)
+        {
+            *qcdir = appenddir (out, *qcname);
+        }
+    }
 }
 
 int main (int argc, char **argv)
 {
-    int i = getargs (argc, argv);
+    char *cd = ".";
+    bool havecd = false;
+    char *cdtexture = "./maps_8bit";
+    char *cdanim = "./anims";
+
+    int i = getargs (argc, argv, &cd, &havecd, &cdtexture, &cdanim);
     
     char *in = argv[i];
     char *out = (i + 1 < argc) ? argv[i + 1] : NULL;
 
-    char *cd = ".";
-    char *cdtexture = "./maps_8bit";
+    char *qcdir, *qcname;
 
-    char *qcdir, *qcname, *smddir, *bmpdir;
+    getdirs (in, out, &qcdir, &qcname, havecd);
 
-    getdirs (in, out, cd, cdtexture, &qcdir, &qcname, &smddir, &bmpdir);
+    char *smddir = appenddir (qcdir, cd);
 
-    decomp_mdl (in, skippath (qcname), cd, cdtexture, qcdir, smddir, bmpdir);
+    decomp_mdl (in, skippath (qcname), cd, cdtexture, cdanim, qcdir, smddir);
 
-    free (bmpdir);
     free (smddir);
     free (qcname);
-    free (qcdir);
+    
+    if (!havecd)
+    {
+        free (qcdir);
+    }
 
     return 0;
 }

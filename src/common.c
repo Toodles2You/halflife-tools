@@ -135,6 +135,25 @@ void stripfilename (char *str)
     }
 }
 
+char *appenddir (char *path, char *dir)
+{
+    size_t path_len = strlen (path);
+    size_t dir_len = strlen (dir);
+
+    bool slash = path[path_len - 1] != '/';
+
+    char *new_path = (char *)calloc (path_len + slash + dir_len, 1);
+    strcpy (new_path, path);
+
+    if (slash)
+    {
+        new_path[path_len] = '/';
+        new_path[path_len + 1] = '\0';
+    }
+    
+    strcat (new_path, dir);
+}
+
 void filebase (char *str, char **name, char **ext)
 {
     char *c = str;
@@ -169,7 +188,7 @@ void strlwr (char *str)
     }
 }
 
-bool makepath (const char *path)
+static bool makedir (const char *path)
 {
 #ifdef __GNUC__
     if (mkdir (path, 0777) != -1)
@@ -179,6 +198,30 @@ bool makepath (const char *path)
         return true;
 #endif
     return errno == EEXIST;
+}
+
+bool makepath (const char *path)
+{
+    char *c = path;
+    char slash;
+
+    while (*c)
+    {
+        if (*c == '/' || *c == '\\')
+        {
+            slash = *c;
+            *c = '\0';
+            if (!makedir (path))
+            {
+                *c = slash;
+                return false;
+            }
+            *c = slash;
+        }
+        c++;
+    }
+
+    return true;
 }
 
 FILE *mdl_open (const char *filename)
@@ -267,7 +310,9 @@ void qc_makepath (const char *filename)
         char *path = strdup (filename);
         path[name - filename] = '\0';
         if (!makepath (path))
-            error (1, "Failed to make directory\n");
+        {
+            error (1, "Failed to make directory: \"%s\"\n", path);
+        }
         free (path);
     }
 }
