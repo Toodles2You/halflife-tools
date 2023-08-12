@@ -141,6 +141,15 @@ void decomp_studioanim (
                 bone_pos[j],
                 bone_rot[j],
                 animindex + sizeof (anim) * j);
+            
+            if (bones[j].parent == -1)
+            {
+                float save = bone_pos[j][0];
+                bone_pos[j][0] = bone_pos[j][1];
+                bone_pos[j][1] = -save;
+
+                bone_rot[j][2] -= Q_PI / 2.0F;
+            }
 
             qc_writef (
                 smd,

@@ -10,7 +10,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # Project config                                                #
 #===============================================================#
 
-project(hltools VERSION 0.5.0 LANGUAGES C)
+project(hltools VERSION 0.5.1 LANGUAGES C)
 
 set(PROJECT_FLAGS
     -Wno-discarded-qualifiers
