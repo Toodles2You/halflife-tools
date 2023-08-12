@@ -636,7 +636,7 @@ static void decomp_writeseqdesc (
 {
     int i;
 
-    qc_putc (qc, '\n');
+    qc_putc (qc, ' ');
     qc_putc (qc, '{');
     qc_putc (qc, '\n');
     

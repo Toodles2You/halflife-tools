@@ -149,7 +149,7 @@ static void decomp_mesh (
         {
             for (c = -c - 2; c > 0; c--)
             {
-                qc_writef (smd, "  %s.bmp", skippath (texture->name));
+                qc_writef (smd, "%s.bmp", skippath (texture->name));
 
                 decomp_writevert (
                     smd, vert_bones, norm_bones,
@@ -177,7 +177,7 @@ static void decomp_mesh (
             flip = false;
             for (c -= 2; c > 0; c--)
             {
-                qc_writef (smd, "  %s.bmp", skippath (texture->name));
+                qc_writef (smd, "%s.bmp", skippath (texture->name));
                 
                 flip = !flip;
 
