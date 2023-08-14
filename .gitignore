@@ -57,5 +57,4 @@ build/*
 
 # Test directories
 test/*
-!test/*.mdl
 !test/*.sh
