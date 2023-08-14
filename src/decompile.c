@@ -19,6 +19,7 @@ without written permission from Valve LLC.
 #endif
 
 #include <ctype.h>
+#include <stddef.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
@@ -55,6 +56,13 @@ void decomp_studioanim (
     int numbones,
     int animindex,
     const char *nodes);
+
+void decomp_spr (
+    const char *sprname,
+    const char *qcname,
+    const char *cd,
+    const char *qcdir,
+    const char *bmpdir);
 
 static void decomp_writeinfo (
     FILE *mdl,
@@ -798,6 +806,8 @@ static void decomp_loadtextures (
 {
     char *texname = (char *)memalloc (strlen (mdlname) + 2, 1);
     char *name, *ext;
+    int id;
+    int version;
 
     filebase (mdlname, &name, &ext);
     
@@ -807,7 +817,7 @@ static void decomp_loadtextures (
     strcat (texname, ext);
 
 #ifndef WIN32
-    *tex = mdl_open (texname, IDSTUDIOHEADER, true);
+    *tex = mdl_open (texname, &id, &version, true);
     
     if (!tex)
     {
@@ -815,13 +825,19 @@ static void decomp_loadtextures (
         strcat (texname, "T");
         strcat (texname, ext);
 
-        *tex = mdl_open (texname, IDSTUDIOHEADER, false);
+        *tex = mdl_open (texname, &id, &version, false);
     }
 #else
-    *tex = mdl_open (texname, IDSTUDIOHEADER, false);
+    *tex = mdl_open (texname, &id, &version, false);
 #endif
 
     free (texname);
+
+    if (id != IDSTUDIOHEADER)
+        error (1, "Not a Valve MDL\n");
+    
+    if (version != STUDIO_VERSION)
+        error (1, "Wrong MDL version: %i\n", version);
 
     mdl_read (*tex, textureheader, sizeof (*textureheader));
 }
@@ -834,6 +850,8 @@ static void decomp_loadseqgroups (
 {
     int i;
     char *seqgroupname = (char *)memalloc (strlen (mdlname) + 3, 1);
+    int id;
+    int version;
 
     *seqgroups = (FILE **)memalloc (numseqgroups, sizeof (**seqgroups));
     *seqheaders = (studioseqhdr_t *)memalloc (numseqgroups, sizeof (**seqheaders));
@@ -843,7 +861,13 @@ static void decomp_loadseqgroups (
         strcpy (seqgroupname, mdlname);
         sprintf (&seqgroupname[strlen(seqgroupname) - 4], "%02d.mdl", i);
         
-        (*seqgroups)[i] = mdl_open(seqgroupname, IDSTUDIOSEQHEADER, false);
+        (*seqgroups)[i] = mdl_open(seqgroupname, &id, &version, false);
+        
+        if (id != IDSTUDIOSEQHEADER)
+            error (1, "Not a Valve MDL sequence group\n");
+        
+        if (version != STUDIO_VERSION)
+            error (1, "Wrong MDL version: %i\n", version);
 
         mdl_read((*seqgroups)[i], &(*seqheaders)[i], sizeof (**seqheaders));
     }
@@ -860,7 +884,16 @@ void decomp_mdl (
     const char *qcdir,
     const char *smddir)
 {
-    FILE *mdl = mdl_open (mdlname, IDSTUDIOHEADER, false);
+    int id;
+    int version;
+    FILE *mdl = mdl_open (mdlname, &id, &version, false);
+
+    if (id != IDSTUDIOHEADER)
+        error (1, "Not a Valve MDL\n");
+    
+    if (version != STUDIO_VERSION)
+        error (1, "Wrong MDL version: %i\n", version);
+    
     FILE *qc = qc_open (qcdir, qcname, "qc");
 
     studiohdr_t header;
@@ -934,12 +967,12 @@ static int getargs (
     if (argc < 2)
     {
 print_help:
-        fprintf (stdout, "Usage: decompmdl [options...] <input file> [<output file>]\n\n");
+        fprintf (stdout, "Usage: decompmdl [options...] <input *.mdl or *.spr file> [<output directory or *.qc file>]\n\n");
         fprintf (stdout, "Options:\n");
         fprintf (stdout, "\t-help\t\t\tDisplay this message and exit.\n\n");
-        fprintf (stdout, "\t-cd <path>\t\tSets the data path. Default: \".\"\n\t\t\t\tIf set, data will be placed relative to root path.\n\n");
-        fprintf (stdout, "\t-cdtexture <path>\tSets the texture path, relative to data path. Default: \"./maps_8bit\"\n\n");
-        fprintf (stdout, "\t-cdanim <path>\t\tSets the animation path, relative to data path. Default: \"./anims\"\n\n");
+        fprintf (stdout, "\t-cd <path>\t\tSets the data path. Defaults to \".\".\n\t\t\t\tIf set, data will be placed relative to root path.\n\n");
+        fprintf (stdout, "\t-cdtexture <path>\tSets the texture path, relative to data path.\n\t\t\t\tDefaults to \"./maps_8bit\" for models, and \"./bmp\" for sprites.\n\n");
+        fprintf (stdout, "\t-cdanim <path>\t\tSets the animation path, relative to data path.\n\t\t\t\tDefaults to \"./anims\".\n\n");
         exit (0);
     }
 
@@ -1042,8 +1075,8 @@ int main (int argc, char **argv)
 {
     char *cd = ".";
     bool havecd = false;
-    char *cdtexture = "./maps_8bit";
-    char *cdanim = "./anims";
+    char *cdtexture = NULL;
+    char *cdanim = NULL;
 
     int i = getargs (argc, argv, &cd, &havecd, &cdtexture, &cdanim);
     
@@ -1056,7 +1089,27 @@ int main (int argc, char **argv)
 
     char *smddir = appenddir (qcdir, cd);
 
-    decomp_mdl (in, skippath (qcname), cd, cdtexture, cdanim, qcdir, smddir);
+    char *name, *ext;
+    filebase (in, &name, &ext);
+    if (!strcmp (ext, ".spr"))
+    {
+        if (cdtexture == NULL)
+            cdtexture = "./bmp";
+
+        char *bmpdir = appenddir (qcdir, cdtexture);
+        decomp_spr (in, skippath (qcname), cdtexture, qcdir, bmpdir);
+        free (bmpdir);
+    }
+    else
+    {
+        if (cdtexture == NULL)
+            cdtexture = "./maps_8bit";
+        
+        if (cdanim == NULL)
+            cdanim = "./anims";
+        
+        decomp_mdl (in, skippath (qcname), cd, cdtexture, cdanim, qcdir, smddir);
+    }
 
     free (smddir);
     free (qcname);

@@ -10,7 +10,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # Project config                                                #
 #===============================================================#
 
-project(hltools VERSION 0.5.1 LANGUAGES C)
+project(hltools VERSION 0.6.0 LANGUAGES C)
 
 set(PROJECT_FLAGS
     -Wno-discarded-qualifiers
@@ -36,6 +36,7 @@ add_executable(decompmdl
     src/model.c
     src/texture.c
     src/animation.c
+    src/sprite.c
 )
 
 target_compile_options(decompmdl PRIVATE ${PROJECT_FLAGS})

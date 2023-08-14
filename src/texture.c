@@ -33,7 +33,7 @@ without written permission from Valve LLC.
 #include "studio.h"
 #include "bitmap.h"
 
-static void decomp_writebmp (FILE *bmp, byte *data, int width, int height, byte *palette)
+void decomp_writebmp (FILE *bmp, byte *data, int width, int height, byte *palette)
 {
     int real_width = ((width + 3) & ~3);
     int area = real_width * height;
@@ -114,4 +114,6 @@ void decomp_studiotexture (FILE *tex, const char *bmpdir, mstudiotexture_t *text
     decomp_writebmp (bmp, data, texture->width, texture->height, palette);
 
     fprintf (stdout, "Done!\n");
+
+    free (data);
 }

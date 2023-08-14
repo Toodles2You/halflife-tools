@@ -234,7 +234,7 @@ void *memalloc (size_t nmemb, size_t size)
     return ptr;
 }
 
-FILE *mdl_open (const char *filename, int identifier, int safe)
+FILE *mdl_open (const char *filename, int *identifier, int *version, int safe)
 {
     if (!safe)
         fprintf (stdout, "Reading from \"%s\"...\n", filename);
@@ -253,15 +253,11 @@ FILE *mdl_open (const char *filename, int identifier, int safe)
     
     int32_t id;
     mdl_read (stream, &id, sizeof (id));
+    *identifier = id;
 
-    if (id != identifier)
-        error (1, "Not a Valve MDL\n");
-
-    int32_t version;
-    mdl_read (stream, &version, sizeof (version));
-
-    if (version != STUDIO_VERSION)
-        error (1, "Wrong MDL version\n");
+    int32_t v;
+    mdl_read (stream, &v, sizeof (v));
+    *version = v;
     
     mdl_seek (stream, 0, SEEK_SET);
     

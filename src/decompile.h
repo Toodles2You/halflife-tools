@@ -24,6 +24,11 @@ without written permission from Valve LLC.
 #define IDSTUDIOSEQHEADER (('Q' << 24) + ('S' << 16) + ('D' << 8) + 'I')
 // little-endian "IDSQ"
 
+#define SPRITE_VERSION 2
+
+#define IDSPRITEHEADER (('P' << 24) + ('S' << 16) + ('D' << 8) + 'I')
+// little-endian "IDSP"
+
 enum {
 	PITCH,
 	YAW,
@@ -75,7 +80,7 @@ void concattransforms (const mat4x3_t in1, const mat4x3_t in2, mat4x3_t out);
 void vectortransform (const vec3_t in1, const mat4x3_t in2, vec3_t out);
 void vectorrotate (const vec3_t in1, const mat4x3_t in2, vec3_t out);
 
-FILE *mdl_open (const char *filename, int identifier, int safe);
+FILE *mdl_open (const char *filename, int *identifier, int *version, int safe);
 void mdl_read (FILE *stream, void *dst, size_t size);
 void mdl_seek (FILE *stream, long off, int whence);
 char* mdl_getmotionflag (int type);
