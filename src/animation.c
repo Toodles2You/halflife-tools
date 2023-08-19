@@ -14,23 +14,6 @@ without written permission from Valve LLC.
 ===========================================================================
 */
 
-#ifdef __GNUC__
-#define _GNU_SOURCE
-#endif
-
-#include <ctype.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <stdarg.h>
-#include <string.h>
-#include <inttypes.h>
-#include <memory.h>
-
-#ifndef __cplusplus
-#include <stdbool.h>
-#endif
-
-#include "decompile.h"
 #include "studio.h"
 
 static void decomp_calcbonevalue (

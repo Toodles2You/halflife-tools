@@ -15,18 +15,6 @@ without written permission from Valve LLC.
 */
 
 #ifdef __GNUC__
-#define _GNU_SOURCE
-#endif
-
-#include <ctype.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <stdarg.h>
-#include <string.h>
-#include <inttypes.h>
-#include <memory.h>
-
-#ifdef __GNUC__
 #include <sys/stat.h>
 #include <sys/types.h>
 #else
@@ -34,11 +22,6 @@ without written permission from Valve LLC.
 #endif
 #include <errno.h>
 
-#ifndef __cplusplus
-#include <stdbool.h>
-#endif
-
-#include "decompile.h"
 #include "studio.h"
 #include "activity.h"
 #include "activitymap.h"
@@ -251,13 +234,19 @@ FILE *mdl_open (const char *filename, int *identifier, int *version, int safe)
     if (safe)
         fprintf (stdout, "Reading from \"%s\"...\n", filename);
     
-    int32_t id;
-    mdl_read (stream, &id, sizeof (id));
-    *identifier = id;
+    if (identifier)
+    {
+        int32_t id;
+        mdl_read (stream, &id, sizeof (id));
+        *identifier = id;
+    }
 
-    int32_t v;
-    mdl_read (stream, &v, sizeof (v));
-    *version = v;
+    if (version)
+    {
+        int32_t v;
+        mdl_read (stream, &v, sizeof (v));
+        *version = v;
+    }
     
     mdl_seek (stream, 0, SEEK_SET);
     

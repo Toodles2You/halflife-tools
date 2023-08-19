@@ -29,6 +29,9 @@ without written permission from Valve LLC.
 #define IDSPRITEHEADER (('P' << 24) + ('S' << 16) + ('D' << 8) + 'I')
 // little-endian "IDSP"
 
+#define IDWADHEADER (('3' << 24) + ('D' << 16) + ('A' << 8) + 'W')
+// little-endian "WAD3"
+
 enum {
 	PITCH,
 	YAW,

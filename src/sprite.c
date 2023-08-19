@@ -14,24 +14,6 @@ without written permission from Valve LLC.
 ===========================================================================
 */
 
-#ifdef __GNUC__
-#define _GNU_SOURCE
-#endif
-
-#include <ctype.h>
-#include <stddef.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <stdarg.h>
-#include <string.h>
-#include <inttypes.h>
-#include <memory.h>
-
-#ifndef __cplusplus
-#include <stdbool.h>
-#endif
-
-#include "decompile.h"
 #include "sprite.h"
 
 void decomp_writebmp (FILE *bmp, byte *data, int width, int height, byte *palette);
@@ -79,6 +61,7 @@ void decomp_writesprframe (
     fprintf (stdout, "Done!\n");
 
     free (data);
+    fclose (bmp);
 }
 
 void decomp_sprframe (

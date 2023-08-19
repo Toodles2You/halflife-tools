@@ -14,22 +14,6 @@ without written permission from Valve LLC.
 ===========================================================================
 */
 
-#ifdef __GNUC__
-#define _GNU_SOURCE
-#endif
-
-#include <ctype.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <stdarg.h>
-#include <string.h>
-#include <inttypes.h>
-
-#ifndef __cplusplus
-#include <stdbool.h>
-#endif
-
-#include "decompile.h"
 #include "studio.h"
 #include "bitmap.h"
 
@@ -116,4 +100,5 @@ void decomp_studiotexture (FILE *tex, const char *bmpdir, mstudiotexture_t *text
     fprintf (stdout, "Done!\n");
 
     free (data);
+    fclose (bmp);
 }
