@@ -10,7 +10,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # Project config                                                #
 #===============================================================#
 
-project(hltools VERSION 0.7.0 LANGUAGES C)
+project(hltools VERSION 0.7.1 LANGUAGES C)
 
 set(PROJECT_FLAGS
     -Wno-discarded-qualifiers
@@ -39,7 +39,6 @@ add_executable(decompmdl
     src/animation.c
     src/sprite.c
     src/wad.c
-    src/info.c
 )
 
 target_precompile_headers(decompmdl PRIVATE src/pch.h)

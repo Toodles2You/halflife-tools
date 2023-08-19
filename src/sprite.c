@@ -155,6 +155,15 @@ void decomp_spr (
     int i, j;
     dspriteframetype_t frametype;
     dspriteframe_t frame;
+
+    if (header.numframes == 1)
+    {
+        mdl_read (spr, &frametype, sizeof (frametype));
+        mdl_read (spr, &frame, sizeof (frame));
+        decomp_sprframe (spr, qc, cdtexture, bmpdir, palette, &frame, 0.1F, sprname);
+        goto sprite_done;
+    }
+
     dspritegroup_t group;
     float interval_total;
     dspriteinterval_t* intervals = memalloc (header.numframes, sizeof (dspriteinterval_t));
@@ -211,11 +220,14 @@ void decomp_spr (
         qc_write (qc, "$groupend");
         qc_putc (qc, '\n');
     }
-    
-    qc_putc (qc, '\n');
 
     free (frame_name);
     free (intervals);
+
+sprite_done:
+
+    qc_putc (qc, '\n');
+
     free (palette);
     
     fclose (qc);
