@@ -12,18 +12,23 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 project(hltools VERSION 0.7.1 LANGUAGES C)
 
-set(PROJECT_FLAGS
-    -Wno-discarded-qualifiers
-)
-
-if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
-    list(APPEND PROJECT_FLAGS
-        -funroll-loops
-        -fexpensive-optimizations
+if(CMAKE_SYSTEM_NAME MATCHES "Linux")
+    set(PROJECT_FLAGS
+        -Wno-discarded-qualifiers
     )
+
+    if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+        list(APPEND PROJECT_FLAGS
+            -funroll-loops
+            -fexpensive-optimizations
+        )
+    endif()
+
+    set(PROJECT_LIBRARIES m)
+elseif(CMAKE_SYSTEM_NAME MATCHES "Windows")
+    set(PROJECT_LIBRARIES winmm)
 endif()
 
-set(PROJECT_LIBRARIES m)
 
 #===============================================================#
 # MDL Decompiler                                                #
