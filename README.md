@@ -1,24 +1,22 @@
 # DecompMDL
 
-*DecompMDL* is a tool for decompiling various file formats used by *GoldSrc* (the *Half-Life* engine). It began as just a model decompiler (hence the name) but, ended up being expanded to support more.
+DecompMDL is a tool for decompiling file formats used by GoldSrc (the Half-Life engine).
+
+If you are new to Half-Life modding, it's recommended that you check out [TWHL's Tools & Resources](https://twhl.info/wiki/page/Tools_and_Resources) page for information on editing & compiling of its various file formats.
 
 ## Supported file formats
 
-Information that can be recovered from the compressed binary files will be extracted & stored in such a way that allows for immediate recompiling using the tools found in the *Half-Life SDK* (or adjacent community-made tools).
-
-If you are new to *Half-Life* modding, it is recommended you check out *TWHL*'s [Tools & Resources](https://twhl.info/wiki/page/Tools_and_Resources) page for information on editing and compiling of the various file formats.
-
 ### Models (.mdl)
 
-Meshes & animations are converted to StudoModel (.smd) files, which can be imported into various modeling suites, such as [*Blender*](https://www.blender.org/) via [*Blender Source Tools*](http://steamreview.org/BlenderSourceTools/). Textures are converted to 8-bit bitmap (.bmp) files. *studiomdl* script is stored in a QC (.qc) file.
+Meshes & animations are converted to SMD files, which can be imported into various modeling suites, such as [Blender](https://www.blender.org/) via [Blender Source Tools](http://steamreview.org/BlenderSourceTools/). Textures are converted to bitmaps. The *studiomdl* script is stored in a QC file.
 
 ### Sprites (.spr)
 
-Frames are converted to 8-bit bitmap (.bmp) files. *sprgen* script is stored in a QC (.qc) file.
+Frames are converted to bitmaps. The *sprgen* script is stored in a QC file.
 
 ### Texture collections (.wad & .bsp)
 
-Textures can be extracted from both texture WADs (.wad) & game levels (.bsp) that have textures embedded in them. They will be converted to 8-bit bitmap (.bmp) files. Use the "-pattern" option, followed by a string, to extract only textures containing the specified substring.
+Textures can be extracted from both WADs & BSPs containing embedded textures. They will be converted to bitmaps. Use the "-pattern" option, followed by a string, to extract only textures containing the specified substring.
 
 ## Basic usage
 
