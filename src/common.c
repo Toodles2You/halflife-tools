@@ -161,7 +161,8 @@ void filebase (char *str, char **name, char **ext)
     }
 }
 
-void strlwr (char *str)
+#ifndef _WIN32
+char *strlwr (char *str)
 {
     char *c = str;
     while (*c)
@@ -170,6 +171,7 @@ void strlwr (char *str)
         c++;
     }
 }
+#endif
 
 static bool makedir (const char *path)
 {

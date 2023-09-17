@@ -68,7 +68,9 @@ void stripext (char *str);
 void stripfilename (char *str);
 char *appenddir (char *path, char *dir);
 void filebase (char *str, char **name, char **ext);
-void strlwr (char *str);
+#ifndef _WIN32
+char *strlwr (char *str);
+#endif
 bool makepath (const char *path);
 
 void *memalloc (size_t nmemb, size_t size);
