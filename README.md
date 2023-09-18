@@ -4,6 +4,8 @@ DecompMDL is a tool for decompiling file formats used by GoldSrc (the Half-Life 
 
 If you are new to Half-Life modding, it's recommended that you check out [TWHL's Tools & Resources](https://twhl.info/wiki/page/Tools_and_Resources) page for information on editing & compiling of its various file formats.
 
+You can find up-to-date [Windows builds](https://github.com/Toodles2You/halflife-tools/releases) or [report issues](https://github.com/Toodles2You/halflife-tools/issues) by visiting the [GitHub repository](https://github.com/Toodles2You/halflife-tools).
+
 ## Supported file formats
 
 ### Models (.mdl)
