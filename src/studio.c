@@ -617,8 +617,6 @@ static void decomp_writeseqdesc (
     studiohdr_t *header,
     mstudioseqdesc_t *seq)
 {
-    int i;
-
     qc_putc (qc, ' ');
     qc_putc (qc, '{');
     qc_putc (qc, '\n');
@@ -678,7 +676,7 @@ static void decomp_writeanimations (
             strcat (animname, blendnum);
         }
 
-        smd = qc_open (animdir, animname, "smd");
+        smd = qc_open (animdir, animname, "smd", false);
 
         decomp_studioanim (
             seqgroup,
@@ -708,10 +706,9 @@ static void decomp_writesequences (
     if (header->numseq <= 0)
         return;
     
-    int i, j;
+    int i;
 
     mstudioseqdesc_t seq;
-    mstudioseqgroup_t group;
 
     char *animdir = appenddir (smddir, cdanim);
     mstudiobone_t *bones = (mstudiobone_t *)memalloc (header->numbones, sizeof (*bones));
@@ -756,7 +753,6 @@ void decomp_writetextures (
 {
     int i;
     mstudiotexture_t texture;
-    char *name, *ext;
 
     char *bmpdir = appenddir (smddir, cdtexture);
 
@@ -869,7 +865,7 @@ void decomp_mdl (
     if (version != STUDIO_VERSION)
         error (1, "Wrong MDL version: %i\n", version);
     
-    FILE *qc = qc_open (qcdir, qcname, "qc");
+    FILE *qc = qc_open (qcdir, qcname, "qc", false);
 
     studiohdr_t header;
     mdl_read (mdl, &header, sizeof (header));

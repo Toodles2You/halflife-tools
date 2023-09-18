@@ -93,7 +93,7 @@ void decomp_studiotexture (FILE *tex, const char *bmpdir, mstudiotexture_t *text
     mdl_seek (tex, texture->index, SEEK_SET);
     mdl_read (tex, data, area + 768);
 
-    FILE *bmp = qc_open (bmpdir, skippath (texture->name), "bmp");
+    FILE *bmp = qc_open (bmpdir, skippath (texture->name), "bmp", true);
 
     decomp_writebmp (bmp, data, texture->width, texture->height, palette);
 

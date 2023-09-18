@@ -273,7 +273,7 @@ void decomp_studiomodel (
     mstudiomodel_t *model,
     const char *nodes)
 {
-    FILE *smd = qc_open (smddir, model->name, "smd");
+    FILE *smd = qc_open (smddir, model->name, "smd", false);
 
     mstudiobone_t* bones = (mstudiobone_t *)memalloc (header->numbones, sizeof (*bones));
     mat4x3_t *bone_transform = (mat4x3_t *)memalloc (header->numbones, sizeof (*bone_transform));

@@ -19,6 +19,7 @@ without written permission from Valve LLC.
 #include <sys/types.h>
 #else
 #include <windows.h>
+#include <direct.h>
 #endif
 #include <errno.h>
 
@@ -35,14 +36,24 @@ void error (int code, const char *fmt, ...)
     exit (code);
 }
 
+static bool isslash (char *c)
+{
+    return c[0] == '/'
+        || c[0] == '\\';
+}
+
 void fixpath (char *str, bool lower)
 {
     char *c = str;
     
     while (*c)
     {
-        if (*c == '/' || *c == '\\')
+        if (isslash (c))
+#ifdef _WIN32
+            *c = '\\';
+#else
             *c = '/';
+#endif
         else if (lower)
             *c = tolower (*c);
         c++;
@@ -56,7 +67,7 @@ char *skippath (char *str)
 
     while (*c)
     {
-        if (*c == '/' || *c == '\\')
+        if (isslash (c))
             c2 = c + 1;
         c++;
     }
@@ -79,7 +90,7 @@ void stripext (char *str)
 
     while (*c)
     {
-        if (*c == '/' || *c == '\\')
+        if (isslash (c))
             name = c + 1;
         c++;
     }
@@ -107,7 +118,7 @@ void stripfilename (char *str)
         if (!foundext && isext (c))
             foundext = true;
         
-        if (*c == '/' || *c == '\\')
+        if (isslash (c))
         {
             if (!foundext)
                 break;
@@ -123,18 +134,24 @@ char *appenddir (char *path, char *dir)
     size_t path_len = strlen (path);
     size_t dir_len = strlen (dir);
 
-    bool slash = path[path_len - 1] != '/';
+    bool need_slash = !isslash (path + (path_len - 1));
 
-    char *new_path = (char *)memalloc (path_len + slash + dir_len + 1, 1);
+    char *new_path = (char *)memalloc (path_len + need_slash + dir_len + 1, 1);
     strcpy (new_path, path);
 
-    if (slash)
+    if (need_slash)
     {
+#ifdef _WIN32
+        new_path[path_len] = '\\';
+#else
         new_path[path_len] = '/';
+#endif
         new_path[path_len + 1] = '\0';
     }
     
     strcat (new_path, dir);
+
+    return new_path;
 }
 
 void filebase (char *str, char **name, char **ext)
@@ -146,7 +163,7 @@ void filebase (char *str, char **name, char **ext)
 
     while (*c)
     {
-        if (*c == '/' || *c == '\\')
+        if (isslash (c))
             *name = c + 1;
         c++;
     }
@@ -160,18 +177,6 @@ void filebase (char *str, char **name, char **ext)
         c++;
     }
 }
-
-#ifndef _WIN32
-char *strlwr (char *str)
-{
-    char *c = str;
-    while (*c)
-    {
-        *c = tolower (*c);
-        c++;
-    }
-}
-#endif
 
 static bool makedir (const char *path)
 {
@@ -192,7 +197,7 @@ bool makepath (const char *path)
 
     while (*c)
     {
-        if (*c == '/' || *c == '\\')
+        if (isslash (c))
         {
             slash = *c;
             *c = '\0';
@@ -322,7 +327,7 @@ void qc_makepath (const char *filename)
     }
 }
 
-FILE *qc_open (const char *filepath, const char *filename, const char *ext)
+FILE *qc_open (const char *filepath, const char *filename, const char *ext, bool binary)
 {
     size_t len = strlen (filepath) + strlen (filename) + 8;
 
@@ -336,8 +341,12 @@ FILE *qc_open (const char *filepath, const char *filename, const char *ext)
     
     len = strlen (fullname);
 
-    if (fullname[len - 1] != '/')
+    if (!isslash (fullname + (len - 1)))
+#ifdef _WIN32
+        strcat (fullname, "\\");
+#else
         strcat (fullname, "/");
+#endif
     
     strcat (fullname, filename);
 
@@ -351,7 +360,11 @@ FILE *qc_open (const char *filepath, const char *filename, const char *ext)
 
     fprintf (stdout, "Writing to \"%s\"...\n", fullname);
 
+#ifdef _WIN32
+    FILE *stream = fopen (fullname, binary ? "wb" : "w");
+#else
     FILE *stream = fopen (fullname, "w");
+#endif
 
     if (!stream)
         error (1, "Failed to create file\n");

@@ -54,7 +54,7 @@ void decomp_writesprframe (
     
     mdl_read (spr, data, frame->width * frame->height);
 
-    FILE *bmp = qc_open (bmpdir, frame_name, "bmp");
+    FILE *bmp = qc_open (bmpdir, frame_name, "bmp", true);
 
     decomp_writebmp (bmp, data, frame->width, frame->height, palette);
 
@@ -114,7 +114,7 @@ void decomp_spr (
     if (version != SPRITE_VERSION)
         error (1, "Wrong SPR version: %i\n", version);
     
-    FILE *qc = qc_open (qcdir, qcname, "qc");
+    FILE *qc = qc_open (qcdir, qcname, "qc", false);
 
     dsprite_t header;
     mdl_read (spr, &header, sizeof (header));

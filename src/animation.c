@@ -103,7 +103,6 @@ void decomp_studioanim (
 
     int i, j;
     mstudioanim_t anim;
-    mstudioanimvalue_t value;
     
     qc_write (smd, "skeleton");
 

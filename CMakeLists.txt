@@ -26,6 +26,12 @@ if(CMAKE_SYSTEM_NAME MATCHES "Linux")
 
     set(PROJECT_LIBRARIES m)
 elseif(CMAKE_SYSTEM_NAME MATCHES "Windows")
+    set(PROJECT_FLAGS
+        /D_CRT_SECURE_NO_WARNINGS
+        /Dstrcasecmp=_stricmp
+        /Dstrdup=_strdup
+    )
+
     set(PROJECT_LIBRARIES winmm)
 endif()
 

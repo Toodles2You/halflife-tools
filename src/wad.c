@@ -37,8 +37,7 @@ static void decomp_miptex (
     );
     mdl_read (wad, palette, 768);
 
-    strlwr (mip->name);
-    FILE *bmp = qc_open (bmpdir, mip->name, "bmp");
+    FILE *bmp = qc_open (bmpdir, mip->name, "bmp", true);
 
     decomp_writebmp (bmp, data, mip->width, mip->height, palette);
 
@@ -67,6 +66,8 @@ void decomp_wad (
     lumpinfo_t lumpinfo;
     miptex_t mip;
 
+    fixpath (pattern, true);
+
     for (i = 0; i < info.numlumps; ++i)
     {
         mdl_seek (wad, info.infotableofs + sizeof (lumpinfo) * i, SEEK_SET);
@@ -77,8 +78,9 @@ void decomp_wad (
         case TYP_MIPTEX:
             mdl_seek (wad, lumpinfo.filepos, SEEK_SET);
             mdl_read (wad, &mip, sizeof (mip));
+            fixpath (mip.name, true);
             
-            if (pattern && !strcasestr (mip.name, pattern))
+            if (pattern && !strstr (mip.name, pattern))
             {
                 break;
             }
@@ -123,6 +125,8 @@ void decomp_bsptex (
     mdl_seek (bsp, header.lumps[LUMP_TEXTURES].fileofs, SEEK_SET);
     mdl_read (bsp, &nummiptex, sizeof (nummiptex));
 
+    fixpath (pattern, true);
+
     for (i = 0; i < nummiptex; ++i)
     {
         mdl_seek (bsp, header.lumps[LUMP_TEXTURES].fileofs + sizeof (nummiptex) + sizeof (dataofs) * i, SEEK_SET);
@@ -132,8 +136,9 @@ void decomp_bsptex (
 
         mdl_seek (bsp, dataofs, SEEK_SET);
         mdl_read (bsp, &mip, sizeof (mip));
+        fixpath (mip.name, true);
         
-        if (pattern && !strcasestr (mip.name, pattern))
+        if (pattern && !strstr (mip.name, pattern))
         {
             continue;
         }

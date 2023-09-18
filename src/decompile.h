@@ -68,9 +68,6 @@ void stripext (char *str);
 void stripfilename (char *str);
 char *appenddir (char *path, char *dir);
 void filebase (char *str, char **name, char **ext);
-#ifndef _WIN32
-char *strlwr (char *str);
-#endif
 bool makepath (const char *path);
 
 void *memalloc (size_t nmemb, size_t size);
@@ -92,7 +89,7 @@ char* mdl_getmotionflag (int type);
 char *mdl_getactname (int type);
 
 void qc_makepath (const char *filename);
-FILE *qc_open (const char *filepath, const char *filename, const char *ext);
+FILE *qc_open (const char *filepath, const char *filename, const char *ext, bool binary);
 void qc_putc (FILE *stream, char c);
 void qc_write (FILE *stream, const char *str);
 void qc_writef (FILE *stream, const char *fmt, ...);
