@@ -17,7 +17,8 @@ without written permission from Valve LLC.
 #ifdef __GNUC__
 #include <sys/stat.h>
 #include <sys/types.h>
-#else
+#endif
+#ifdef _WIN32
 #include <windows.h>
 #include <direct.h>
 #endif
@@ -26,6 +27,12 @@ without written permission from Valve LLC.
 #include "studio.h"
 #include "activity.h"
 #include "activitymap.h"
+
+#ifdef _WIN32
+#define SLASH '\\'
+#else
+#define SLASH '/'
+#endif
 
 void error (int code, const char *fmt, ...)
 {
@@ -49,11 +56,7 @@ void fixpath (char *str, bool lower)
     while (*c)
     {
         if (isslash (c))
-#ifdef _WIN32
-            *c = '\\';
-#else
-            *c = '/';
-#endif
+            *c = SLASH;
         else if (lower)
             *c = tolower (*c);
         c++;
@@ -141,11 +144,7 @@ char *appenddir (char *path, char *dir)
 
     if (need_slash)
     {
-#ifdef _WIN32
-        new_path[path_len] = '\\';
-#else
-        new_path[path_len] = '/';
-#endif
+        new_path[path_len] = SLASH;
         new_path[path_len + 1] = '\0';
     }
     
@@ -342,11 +341,10 @@ FILE *qc_open (const char *filepath, const char *filename, const char *ext, bool
     len = strlen (fullname);
 
     if (!isslash (fullname + (len - 1)))
-#ifdef _WIN32
-        strcat (fullname, "\\");
-#else
-        strcat (fullname, "/");
-#endif
+    {
+        fullname[len] = SLASH;
+        fullname[len + 1] = '\0';
+    }
     
     strcat (fullname, filename);
 

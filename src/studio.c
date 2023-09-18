@@ -787,7 +787,7 @@ static void decomp_loadtextures (
     strcat (texname, "t");
     strcat (texname, ext);
 
-#ifndef WIN32
+#ifndef _WIN32
     *tex = mdl_open (texname, &id, &version, true);
     
     if (!tex)

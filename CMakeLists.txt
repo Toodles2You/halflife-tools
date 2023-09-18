@@ -10,7 +10,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # Project config                                                #
 #===============================================================#
 
-project(hltools VERSION 0.7.1 LANGUAGES C)
+project(hltools VERSION 0.8.0 LANGUAGES C)
 
 if(CMAKE_SYSTEM_NAME MATCHES "Linux")
     set(PROJECT_FLAGS
@@ -34,7 +34,6 @@ elseif(CMAKE_SYSTEM_NAME MATCHES "Windows")
 
     set(PROJECT_LIBRARIES winmm)
 endif()
-
 
 #===============================================================#
 # MDL Decompiler                                                #

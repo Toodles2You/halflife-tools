@@ -4,7 +4,7 @@ https://en.wikipedia.org/wiki/BMP_file_format
 ================================================
 */
 
-#ifdef WIN32
+#ifdef _WIN32
 #include <windows.h>
 #define _BITMAP_H
 #endif
