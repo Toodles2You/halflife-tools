@@ -66,7 +66,10 @@ void decomp_wad (
     lumpinfo_t lumpinfo;
     miptex_t mip;
 
-    fixpath (pattern, true);
+    if (pattern)
+    {
+        fixpath (pattern, true);
+    }
 
     for (i = 0; i < info.numlumps; ++i)
     {
@@ -125,7 +128,10 @@ void decomp_bsptex (
     mdl_seek (bsp, header.lumps[LUMP_TEXTURES].fileofs, SEEK_SET);
     mdl_read (bsp, &nummiptex, sizeof (nummiptex));
 
-    fixpath (pattern, true);
+    if (pattern)
+    {
+        fixpath (pattern, true);
+    }
 
     for (i = 0; i < nummiptex; ++i)
     {
