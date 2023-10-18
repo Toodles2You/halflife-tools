@@ -46,18 +46,19 @@ static void decomp_writeinfo (
     const char *cd,
     const char *cdtexture,
     studiohdr_t *header,
-    studiohdr_t *textureheader)
+    studiohdr_t *textureheader,
+    const char *modename)
 {
     qc_write (qc, "/*");
     qc_write (qc, "==============================================================================");
-    qc_writef (qc, "%s", skippath (header->name));
+    qc_writef (qc, "%s", skippath (modename));
     qc_write (qc, "==============================================================================");
     qc_write (qc, "*/");
     qc_putc (qc, '\n');
 
     /* Toodles: Keep the original output name because GoldSrc's filesystem is case-sensitive. */
 
-    qc_writef (qc, "$modelname %s", header->name);
+    qc_writef (qc, "$modelname %s", modename);
     qc_writef (qc, "$cd %s", cd);
     qc_writef (qc, "$cdtexture %s", cdtexture);
     
@@ -869,7 +870,11 @@ void decomp_mdl (
 
     studiohdr_t header;
     mdl_read (mdl, &header, sizeof (header));
-    fixpath (header.name, false);
+
+    char modelname[65];
+    strncpy(modelname, header.name, 64);
+    modelname[64] = '\0';
+    fixpath (modelname, false);
 
     /* Init the texture vars with the regular model info. */
     FILE *tex = mdl;
@@ -892,7 +897,7 @@ void decomp_mdl (
 
     char *nodes = decomp_makenodes (mdl, &header);
 
-    decomp_writeinfo (mdl, tex, qc, cd, cdtexture, &header, &textureheader);
+    decomp_writeinfo (mdl, tex, qc, cd, cdtexture, &header, &textureheader, modelname);
     decomp_writebodygroups (mdl, tex, qc, smddir, &header, &textureheader, nodes);
     decomp_writeskingroups (mdl, tex, qc, &header, &textureheader);
     decomp_writeattachments (mdl, qc, &header);
