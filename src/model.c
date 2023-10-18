@@ -295,6 +295,4 @@ void decomp_studiomodel (
     free (bone_transform);
     free (bones);
     fclose (smd);
-
-    fprintf (stdout, "Done!\n");
 }

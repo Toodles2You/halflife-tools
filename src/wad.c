@@ -41,8 +41,6 @@ static void decomp_miptex (
 
     decomp_writebmp (bmp, data, mip->width, mip->height, palette);
 
-    fprintf (stdout, "Done!\n");
-
     free (data);
     fclose (bmp);
 }

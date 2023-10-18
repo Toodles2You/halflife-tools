@@ -58,8 +58,6 @@ void decomp_writesprframe (
 
     decomp_writebmp (bmp, data, frame->width, frame->height, palette);
 
-    fprintf (stdout, "Done!\n");
-
     free (data);
     fclose (bmp);
 }

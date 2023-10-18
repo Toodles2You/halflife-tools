@@ -689,7 +689,6 @@ static void decomp_writeanimations (
             nodes);
 
         fclose (smd);
-        fprintf (stdout, "Done!\n");
     }
 
     free (animname);
@@ -872,7 +871,7 @@ void decomp_mdl (
     mdl_read (mdl, &header, sizeof (header));
 
     char modelname[65];
-    strncpy(modelname, header.name, 64);
+    strncpy (modelname, header.name, 64);
     modelname[64] = '\0';
     fixpath (modelname, false);
 
@@ -914,7 +913,6 @@ void decomp_mdl (
         for (i = 1; i < header.numseqgroups; ++i)
         {
             fclose (seqgroups[i]);
-            fprintf (stdout, "Done!\n");
         }
         free (seqheaders);
         free (seqgroups);
@@ -923,7 +921,6 @@ void decomp_mdl (
     if (header.numtextures == 0)
     {
         fclose (tex);
-        fprintf (stdout, "Done!\n");
     }
     
     fclose (qc);

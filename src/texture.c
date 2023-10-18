@@ -97,8 +97,6 @@ void decomp_studiotexture (FILE *tex, const char *bmpdir, mstudiotexture_t *text
 
     decomp_writebmp (bmp, data, texture->width, texture->height, palette);
 
-    fprintf (stdout, "Done!\n");
-
     free (data);
     fclose (bmp);
 }
