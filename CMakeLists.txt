@@ -10,7 +10,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # Project config                                                #
 #===============================================================#
 
-project(hltools VERSION 0.8.2 LANGUAGES C)
+project(hltools VERSION 0.9.0 LANGUAGES C)
 
 if(CMAKE_SYSTEM_NAME MATCHES "Linux")
     set(PROJECT_FLAGS
@@ -49,6 +49,7 @@ add_executable(decompmdl
     src/animation.c
     src/sprite.c
     src/wad.c
+    src/info.c
 )
 
 target_precompile_headers(decompmdl PRIVATE src/pch.h)

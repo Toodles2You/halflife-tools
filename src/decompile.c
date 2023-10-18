@@ -42,6 +42,9 @@ void decomp_bsptex (
     const char *bmpdir,
     const char *pattern);
 
+void info_mdl (
+    const char *mdlname,
+    const char *args);
 
 static int getargs (
     int argc,
@@ -58,10 +61,32 @@ print_help:
         fprintf (stdout, "Usage: decompmdl [options...] <input {*.mdl | *.spr | *.wad | *.bsp}> [<output {directory | *.qc}>]\n\n");
         fprintf (stdout, "Options:\n");
         fprintf (stdout, "\t-help\t\t\tDisplay this message and exit.\n\n");
-        fprintf (stdout, "\t-cd <path>\t\tSets the data path. Defaults to \".\".\n\t\t\t\tIf set, data will be placed relative to root path.\n\n");
-        fprintf (stdout, "\t-cdtexture <path>\tSets the texture path, relative to data path.\n\t\t\t\tDefaults to \"./maps_8bit\" for models, and \"./bmp\"\n\t\t\t\tfor sprites, WADs, and BSPs.\n\n");
-        fprintf (stdout, "\t-cdanim <path>\t\tSets the animation path, relative to data path.\n\t\t\t\tDefaults to \"./anims\".\n\n");
-        fprintf (stdout, "\t-pattern <string>\tIf set, only textures containing the matching\n\t\t\t\tsubstring will be extracted from WADs and BSPs.\n\n");
+
+        fprintf (stdout,
+"\t-cd <path>\t\tSets the data path. Defaults to \".\".\n\
+\t\t\t\tIf set, data will be placed relative to root path.\n\n");
+        
+        fprintf (stdout,
+"\t-cdtexture <path>\tSets the texture path, relative to data path.\n\
+\t\t\t\tDefaults to \"./maps_8bit\" for models, and \"./bmp\"\n\
+\t\t\t\tfor sprites, WADs, and BSPs.\n\n");
+        
+        fprintf (stdout,
+"\t-cdanim <path>\t\tSets the animation path, relative to data path.\n\
+\t\t\t\tDefaults to \"./anims\".\n\n");
+        
+        fprintf (stdout,
+"\t-pattern <string>\tIf set, only textures containing the matching\n\
+\t\t\t\tsubstring will be extracted from WADs and BSPs.\n\n");
+        
+        fprintf (stdout,
+"\t-info [<string>]\tFile info will be printed. No decompiling will occur.\n\
+\n\
+\t\t\t\tA comma separated list of following arguments may be\n\
+\t\t\t\tadded to print extra info: \"acts\" \"events\" \"bodygroups\"\n\
+\n\
+\t\t\t\tIf the input file is a WAD or BSP, the optional string\n\
+\t\t\t\twill instead act identically to the \"-pattern\" option.\n\n");
         exit (0);
     }
 
@@ -74,6 +99,15 @@ print_help:
         
         if (!strcmp (argv[i], "-help"))
         {
+            goto print_help;
+        }
+        else if (!strcmp (argv[i], "-info"))
+        {
+            if (i < argc - 1)
+            {
+                info_mdl (argv[argc - 1], (i + 1 < argc - 1) ? argv[i + 1] : NULL);
+                exit (0);
+            }
             goto print_help;
         }
         else if (!strcmp (argv[i], "-cd"))

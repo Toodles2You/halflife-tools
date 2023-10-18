@@ -43,3 +43,11 @@ All that's needed is a path to the desired input file. Everything else is option
         
         -pattern <string>   If set, only textures containing the matching
                             substring will be extracted from WADs & BSPs.
+
+        -info [<string>]    File info will be printed. No decompiling will occur.
+
+                            A comma separated list of following arguments may be
+                            added to print extra info: "acts" "events" "bodygroups"
+
+                            If the input file is a WAD or BSP, the optional string
+                            will instead act identically to the "-pattern" option.
